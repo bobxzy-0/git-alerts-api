@@ -6,9 +6,26 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     UV_LINK_MODE=copy \
     PATH="/app/.venv/bin:$PATH"
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
+ARG DEBIAN_MIRROR=https://mirrors.aliyun.com/debian
+ARG DEBIAN_SECURITY_MIRROR=https://mirrors.aliyun.com/debian-security
+
+# python:3.14-slim uses Debian's deb822 sources file. Keep the fallback for
+# older slim variants that still provide /etc/apt/sources.list.
+RUN set -eux; \
+    for source_file in /etc/apt/sources.list.d/debian.sources /etc/apt/sources.list; do \
+        if [ -f "$source_file" ]; then \
+            sed -i \
+                -e "s|https\?://deb.debian.org/debian-security|${DEBIAN_SECURITY_MIRROR}|g" \
+                -e "s|https\?://security.debian.org/debian-security|${DEBIAN_SECURITY_MIRROR}|g" \
+                -e "s|https\?://deb.debian.org/debian|${DEBIAN_MIRROR}|g" \
+                "$source_file"; \
+        fi; \
+    done; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends \
         git curl ca-certificates \
-    && rm -rf /var/lib/apt/lists/*
+    ; \
+    rm -rf /var/lib/apt/lists/*
 
 COPY --from=ghcr.io/astral-sh/uv:0.5.11 /uv /uvx /bin/
 
