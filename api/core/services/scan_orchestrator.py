@@ -1,9 +1,16 @@
 import re
+import hashlib
 from logging import getLogger
 from django.utils import timezone
+from django.db.models import F
 from datetime import timedelta
-from scans.models import Scan
-from findings.models import Finding, IgnoreFindingType, IgnoreFindingDomain
+from scans.models import RepositoryScanQueue, Scan, SourceType
+from findings.models import (
+    Finding,
+    FindingOccurrence,
+    IgnoreFindingDomain,
+    IgnoreFindingType,
+)
 from core.models import RepoScanHistory, SystemSettings
 
 logger = getLogger(__name__)
@@ -12,15 +19,17 @@ logger = getLogger(__name__)
 class ScanOrchestrator:
     """Orchestrates the end-to-end scan workflow"""
 
-    def __init__(self, scan: Scan, github_client, trufflehog_client):
+    def __init__(self, scan: Scan, source_adapter, trufflehog_client=None, detection_engines=None):
         self.scan = scan
-        self.github_client = github_client
-        self.trufflehog_client = trufflehog_client
+        self.source_adapter = source_adapter
+        self.detection_engines = detection_engines or ([trufflehog_client] if trufflehog_client else [])
 
         system_settings = SystemSettings.get_settings()
         self.skip_recent_days = system_settings.skip_recent_days
         self.verified_only = system_settings.verified_only
         self.org_repos_only = system_settings.org_repos_only
+        self.repository_successes = 0
+        self.repository_failures = 0
 
     def run(self):
         """Main orchestrator entry point"""
@@ -39,47 +48,39 @@ class ScanOrchestrator:
 
     def handle_scan(self):
         """Handles main logic of scanning"""
-        if self.scan.type == Scan.ScanTypes.ORG_REPOS:
-            repos = self.github_client.get_org_repos(self.scan.value)
-
-        elif self.scan.type == Scan.ScanTypes.ORG_USERS:
-            repos = self.github_client.get_org_members_repos(self.scan.value)
-
-        elif self.scan.type == Scan.ScanTypes.SEARCH_CODE:
-            repos = self.github_client.search_code(self.scan.value)
-
-        elif self.scan.type == Scan.ScanTypes.SEARCH_COMMITS:
-            repos = self.github_client.search_commits(self.scan.value)
-
-        elif self.scan.type == Scan.ScanTypes.SEARCH_ISSUES:
-            repos = self.github_client.search_issues(self.scan.value)
-
-        elif self.scan.type == Scan.ScanTypes.SEARCH_REPOS:
-            repos = self.github_client.search_repositories(self.scan.value)
-
-        elif self.scan.type == Scan.ScanTypes.SEARCH_USERS:
-            repos = self.github_client.search_users(self.scan.value)
-
-        logger.info(
-            f"event=scan_orchestrator_github_repos_fetched scan_id={self.scan.id} repo_count={len(repos)}"
+        targets = self.source_adapter.search(
+            self.scan.type,
+            self.scan.value,
+            org_repos_only=self.org_repos_only,
         )
 
-        # Filter by organization ownership if enabled
-        if self.org_repos_only and self.scan.type in [
-            Scan.ScanTypes.SEARCH_CODE,
-            Scan.ScanTypes.SEARCH_COMMITS,
-            Scan.ScanTypes.SEARCH_ISSUES,
-            Scan.ScanTypes.SEARCH_REPOS,
-        ]:
-            repos = self._filter_organization_repos(repos)
-            logger.info(
-                f"event=scan_orchestrator_org_filtered scan_id={self.scan.id} org_repo_count={len(repos)}"
-            )
+        if self.scan.source == SourceType.BRAVE:
+            self.scan.total_repositories = len(targets)
+            self.scan.save(update_fields=["total_repositories", "updated_at"])
+            for target in targets:
+                item, created = RepositoryScanQueue.objects.get_or_create(
+                    user=self.scan.user,
+                    discovery_scan=self.scan,
+                    source=target.source,
+                    repository_url=target.url,
+                    defaults={"owner": target.owner, "repository": target.name},
+                )
+                if created:
+                    from scans.tasks import process_repository_scan_queue
+                    try:
+                        process_repository_scan_queue.delay(item.pk)
+                    except Exception as exc:
+                        logger.warning(
+                            "event=repository_queue_dispatch_failed queue_id=%s error=%s",
+                            item.pk, exc,
+                        )
+            return
 
-        unique_repos_to_scan = set()
-        for repo in repos:
-            repo_url = self.extract_repo_url_from_response(self.scan.type, repo)
-            unique_repos_to_scan.add(repo_url)
+        logger.info(
+            f"event=scan_orchestrator_targets_fetched scan_id={self.scan.id} source={self.scan.source} target_count={len(targets)}"
+        )
+
+        unique_repos_to_scan = {target.url for target in targets}
 
         self.scan.total_repositories = len(unique_repos_to_scan)
         self.scan.save()
@@ -90,7 +91,7 @@ class ScanOrchestrator:
 
         repos_to_scan = self.filtered_repos(unique_repos_to_scan)
 
-        self.scan.ignored_repositories = len(repos) - len(repos_to_scan)
+        self.scan.ignored_repositories = len(unique_repos_to_scan) - len(repos_to_scan)
         self.scan.save()
 
         for repo in repos_to_scan:
@@ -101,61 +102,42 @@ class ScanOrchestrator:
             self.scan.scanned_repositories += 1
             self.scan.save()
 
-            try:
-                findings = self.trufflehog_client.scan_repository(
-                    repository_url=repo, only_verified=self.verified_only
-                )
-            except Exception as e:
+            findings = []
+            engine_successes = 0
+            engine_failures = 0
+            for engine in self.detection_engines:
+                try:
+                    findings.extend(engine.scan_repository(
+                        repository_url=repo, only_verified=self.verified_only
+                    ))
+                    engine_successes += 1
+                except Exception as e:
+                    engine_failures += 1
+                    logger.error(
+                        "event=detection_engine_failed scan=%s repo=%s engine=%s error=%s",
+                        self.scan.id, repo, getattr(engine, "name", type(engine).__name__), e,
+                        exc_info=True,
+                    )
+            if engine_successes == 0:
+                self.repository_failures += 1
                 history.status = RepoScanHistory.ScanStatus.FAILED
                 history.completed_at = timezone.now()
                 history.save()
 
                 logger.error(
-                    f"event=scan_orchestrator_repo_scan_failed scan={self.scan.id} repo={repo} error={e}",
+                    f"event=scan_orchestrator_repo_scan_failed scan={self.scan.id} repo={repo} error=all_detection_engines_failed",
                     exc_info=True,
                 )
                 continue
 
+            if engine_failures:
+                self.repository_failures += 1
+
             history.status = RepoScanHistory.ScanStatus.COMPLETED
             history.completed_at = timezone.now()
             history.save()
+            self.repository_successes += 1
             self.save_findings(repo, findings)
-
-    def _filter_organization_repos(self, repos: list[dict]) -> list[dict]:
-        """Filter repos to only include organization-owned repositories"""
-        filtered = []
-
-        for repo in repos:
-            if self.scan.type == Scan.ScanTypes.SEARCH_ISSUES:
-                try:
-                    repo_url = repo.get("repository_url", "")
-                    parts = repo_url.split("/")
-                    if len(parts) >= 2:
-                        owner = parts[-2]
-                        repo_name = parts[-1]
-
-                        full_repo_url = (
-                            f"{self.github_client.base_url}/repos/{owner}/{repo_name}"
-                        )
-                        response = self.github_client._request("GET", full_repo_url)
-                        repo_data = response.json()
-
-                        if self.github_client.is_organization_repo(repo_data):
-                            filtered.append(repo)
-                    else:
-                        logger.warning(
-                            f"event=scan_orchestrator_invalid_repo_url url={repo_url}"
-                        )
-                except Exception as e:
-                    logger.error(
-                        f"event=scan_orchestrator_fetch_repo_failed repo_url={repo.get('repository_url')} error={e}"
-                    )
-                    continue
-            else:
-                if self.github_client.is_organization_repo(repo):
-                    filtered.append(repo)
-
-        return filtered
 
     def filtered_repos(self, repositories: set[str]) -> list:
         """Filters repository for scanning based on different filters"""
@@ -218,20 +200,64 @@ class ScanOrchestrator:
         """Save all findings for a given repository"""
         for finding in findings:
             if not self.should_ignore_finding(finding):
-                Finding.objects.create(
-                    scan=self.scan,
-                    repository=finding["repository"],
-                    type=finding["type"],
-                    value=finding["value"],
-                    description=finding["description"],
-                    file=finding["file"],
-                    line=finding["line"],
-                    email=finding["author"],
-                    commit_hash=finding["commit"],
-                    commit_url=f"{repo_url}/commit/{finding['commit']}",
+                raw_value = finding.get("value") or ""
+                secret_hash = hashlib.sha256(raw_value.encode()).hexdigest()
+                repository = finding.get("repository") or repo_url
+                fingerprint_source = "\0".join([
+                    self.scan.source,
+                    repository,
+                    finding.get("file") or "",
+                    finding.get("type") or "",
+                    secret_hash,
+                ])
+                fingerprint = hashlib.sha256(fingerprint_source.encode()).hexdigest()
+                risk_score, severity = self._rate_finding(finding)
+                now = timezone.now()
+                saved_finding, created = Finding.objects.get_or_create(
+                    fingerprint=fingerprint,
+                    defaults={
+                        "scan": self.scan,
+                        "last_scan": self.scan,
+                        "source": self.scan.source,
+                        "repository": repository,
+                        "type": finding.get("type") or "Unknown",
+                        "value": self._mask_secret(raw_value),
+                        "secret_hash": secret_hash,
+                        "description": finding.get("description") or "",
+                        "file": finding.get("file") or "",
+                        "line": finding.get("line"),
+                        "email": finding.get("author") or "",
+                        "commit_hash": finding.get("commit") or "",
+                        "commit_url": f"{repo_url}/commit/{finding.get('commit') or ''}",
+                        "validated": bool(finding.get("verified")),
+                        "severity": severity,
+                        "risk_score": risk_score,
+                        "first_seen_at": now,
+                        "last_seen_at": now,
+                    },
                 )
-                self.scan.total_findings += 1
-                self.scan.save()
+                if not created:
+                    saved_finding.last_scan = self.scan
+                    saved_finding.last_seen_at = now
+                    saved_finding.validated = saved_finding.validated or bool(finding.get("verified"))
+                    saved_finding.severity = severity
+                    saved_finding.risk_score = risk_score
+                    if saved_finding.lifecycle_status == Finding.LifecycleStatus.RESOLVED:
+                        saved_finding.lifecycle_status = Finding.LifecycleStatus.REOPENED
+                    saved_finding.save(update_fields=[
+                        "last_scan", "last_seen_at", "validated", "severity",
+                        "risk_score", "lifecycle_status", "updated_at",
+                    ])
+                _, occurrence_created = FindingOccurrence.objects.get_or_create(
+                    finding=saved_finding, scan=self.scan
+                )
+                if occurrence_created:
+                    if not created:
+                        Finding.objects.filter(pk=saved_finding.pk).update(
+                            occurrence_count=F("occurrence_count") + 1
+                        )
+                    self.scan.total_findings += 1
+                    self.scan.save(update_fields=["total_findings", "updated_at"])
             else:
                 self.scan.ignored_findings += 1
                 self.scan.save()
@@ -241,30 +267,32 @@ class ScanOrchestrator:
         )
 
     @staticmethod
-    def extract_repo_url_from_response(scan_type: str, response: dict) -> str:
-        """Extracts repository url from GitHub response based on different scan types"""
-        if scan_type in [
-            Scan.ScanTypes.ORG_REPOS,
-            Scan.ScanTypes.ORG_USERS,
-            Scan.ScanTypes.SEARCH_REPOS,
-            Scan.ScanTypes.SEARCH_USERS,
-        ]:
-            repo_url = response["html_url"]
+    def _mask_secret(value: str) -> str:
+        if len(value) <= 8:
+            return "********"
+        return f"{value[:4]}…{value[-4:]}"
 
-        elif scan_type in [Scan.ScanTypes.SEARCH_CODE, Scan.ScanTypes.SEARCH_COMMITS]:
-            repo_url = response["repository"]["html_url"]
-
-        elif scan_type in [Scan.ScanTypes.SEARCH_ISSUES]:
-            html_url = response["html_url"]
-
-            if "/issues/" in html_url:
-                repo_url = html_url.split("/issues/", 1)[0]
-            elif "/pull/" in html_url:
-                repo_url = html_url.split("/pull/", 1)[0]
-            else:
-                repo_url = "/".join(html_url.split("/")[:-1])
-
-        return repo_url
+    @staticmethod
+    def _rate_finding(finding: dict) -> tuple[int, str]:
+        finding_type = (finding.get("type") or "").lower()
+        score = 20
+        if any(term in finding_type for term in ("private key", "aws", "database")):
+            score += 50
+        elif any(term in finding_type for term in ("token", "password", "secret")):
+            score += 30
+        if finding.get("verified"):
+            score += 20
+        score += 10  # Public source exposure.
+        score = min(score, 100)
+        if score >= 80:
+            return score, Finding.Severity.CRITICAL
+        if score >= 60:
+            return score, Finding.Severity.HIGH
+        if score >= 40:
+            return score, Finding.Severity.MEDIUM
+        if score >= 20:
+            return score, Finding.Severity.LOW
+        return score, Finding.Severity.INFO
 
     @staticmethod
     def extract_domain(email: str) -> str:

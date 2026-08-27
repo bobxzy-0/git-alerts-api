@@ -14,6 +14,11 @@ import type {
   CreateIntegrationRequest,
   SystemSettings,
   UpdateSystemSettingsRequest,
+  DashboardSummary,
+  MonitorRule,
+  SourceHealth,
+  NotificationChannel,
+  MonitoringProfile,
 } from '@/types';
 
 // Auth API
@@ -29,19 +34,44 @@ export const authApi = {
   },
 };
 
+export const dashboardApi = { get: async (): Promise<DashboardSummary> => (await apiClient.get<DashboardSummary>('/dashboard/')).data };
+export const sourceHealthApi = { list: async (): Promise<SourceHealth[]> => (await apiClient.get<SourceHealth[]>('/source-health/')).data };
+export const monitorRulesApi = {
+  list: async (): Promise<MonitorRule[]> => (await apiClient.get<MonitorRule[]>('/monitor-rules/')).data,
+  create: async (data: Pick<MonitorRule, 'name' | 'enabled' | 'source' | 'scan_type' | 'value' | 'interval_minutes'>): Promise<MonitorRule> => (await apiClient.post<MonitorRule>('/monitor-rules/', data)).data,
+  update: async (id: number, data: Partial<MonitorRule>): Promise<MonitorRule> => (await apiClient.patch<MonitorRule>(`/monitor-rules/${id}/`, data)).data,
+  delete: async (id: number): Promise<void> => { await apiClient.delete(`/monitor-rules/${id}/`); },
+};
+
+export const notificationChannelsApi = {
+  list: async (): Promise<NotificationChannel[]> => (await apiClient.get<NotificationChannel[]>('/notifications/channels/')).data,
+  create: async (data: Pick<NotificationChannel,'name'|'channel_type'|'target'|'enabled'>): Promise<NotificationChannel> => (await apiClient.post<NotificationChannel>('/notifications/channels/',data)).data,
+  delete: async (id:number): Promise<void> => { await apiClient.delete(`/notifications/channels/${id}/`); },
+};
+
+export const monitoringProfilesApi = {
+  list: async (): Promise<MonitoringProfile[]> => (await apiClient.get<MonitoringProfile[]>('/monitoring-profiles/')).data,
+  create: async (data: Omit<MonitoringProfile, 'id' | 'generated_rule_count'>): Promise<MonitoringProfile> => (await apiClient.post<MonitoringProfile>('/monitoring-profiles/', data)).data,
+  delete: async (id: number): Promise<void> => { await apiClient.delete(`/monitoring-profiles/${id}/`); },
+};
+
 // Scans API
 export const scansApi = {
   list: async (params?: {
     type?: string;
     value?: string;
-    status?: string;
+    execution_status?: string;
+    monitoring_status?: string;
+    result_status?: string;
     created_at?: string;
     completed_at?: string;
   }): Promise<Scan[]> => {
     const queryParams = new URLSearchParams();
     if (params?.type) queryParams.append('type', params.type);
     if (params?.value) queryParams.append('value', params.value);
-    if (params?.status) queryParams.append('status', params.status);
+    if (params?.execution_status) queryParams.append('execution_status', params.execution_status);
+    if (params?.monitoring_status) queryParams.append('monitoring_status', params.monitoring_status);
+    if (params?.result_status) queryParams.append('result_status', params.result_status);
     if (params?.created_at) queryParams.append('created_at', params.created_at);
     if (params?.completed_at) queryParams.append('completed_at', params.completed_at);
 

@@ -42,7 +42,8 @@ CUSTOM_APPS = [
     'scans',
     'findings',
     'core',
-    'integrations'
+    'integrations',
+    'notifications',
 ]
 
 INSTALLED_APPS += EXTERNAL_APPS + CUSTOM_APPS
@@ -138,6 +139,28 @@ CELERY_RESULT_SERIALIZER = 'json'
 CELERY_TIMEZONE = Config.get_env('CELERY_TIMEZONE')
 
 CELERY_WORKER_HIJACK_ROOT_LOGGER = False
+CELERY_BEAT_SCHEDULE = {
+    "celery-beat-heartbeat": {
+        "task": "core.tasks.celery_beat_heartbeat",
+        "schedule": 60.0,
+    },
+    "dispatch-due-monitor-rules": {
+        "task": "scans.tasks.dispatch_due_monitor_rules",
+        "schedule": 60.0,
+    },
+    "send-due-alerts": {
+        "task": "notifications.tasks.send_due_alerts",
+        "schedule": 300.0,
+    },
+}
+
+EMAIL_BACKEND = os.getenv("EMAIL_BACKEND", "django.core.mail.backends.console.EmailBackend")
+EMAIL_HOST = os.getenv("EMAIL_HOST", "localhost")
+EMAIL_PORT = int(os.getenv("EMAIL_PORT", "25"))
+EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER", "")
+EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD", "")
+EMAIL_USE_TLS = Config.get_bool("EMAIL_USE_TLS", False)
+DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", "gitalerts@localhost")
 
 # CORS Settings
 CORS_ALLOWED_ORIGINS = Config.get_list("CORS_ALLOWED_ORIGINS")

@@ -7,6 +7,9 @@ class UserIntegration(models.Model):
     
     class Provider(models.TextChoices):
         GITHUB = "github", "GitHub"
+        GITLAB = "gitlab", "GitLab"
+        GITEE = "gitee", "Gitee"
+        BRAVE = "brave", "Brave Search"
         SLACK = "slack", "Slack"
     
     class Status(models.TextChoices):
@@ -44,4 +47,3 @@ class UserIntegration(models.Model):
 
 
     
-

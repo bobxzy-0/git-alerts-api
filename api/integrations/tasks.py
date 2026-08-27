@@ -31,6 +31,25 @@ def run_validation_task(integration_id):
                 integration.status = UserIntegration.Status.FAILED
                 integration.error_message = error_message
 
+        elif integration.provider == "gitlab":
+            is_valid, error_message = validate_gitlab_integration(integration.get_token())
+            integration.status = (
+                UserIntegration.Status.CONNECTED if is_valid else UserIntegration.Status.FAILED
+            )
+            integration.error_message = error_message
+
+        elif integration.provider == "gitee":
+            is_valid, error_message = validate_source_integration("gitee", integration.get_token())
+            integration.status = (
+                UserIntegration.Status.CONNECTED if is_valid else UserIntegration.Status.FAILED
+            )
+            integration.error_message = error_message
+
+        elif integration.provider == "brave":
+            is_valid, error_message = validate_source_integration("brave", integration.get_token())
+            integration.status = UserIntegration.Status.CONNECTED if is_valid else UserIntegration.Status.FAILED
+            integration.error_message = error_message
+
         elif integration.provider == "slack":
             if validate_slack_integration(integration.get_token()):
                 integration.status = UserIntegration.Status.CONNECTED
@@ -95,3 +114,40 @@ def validate_github_integration(github_token: str) -> tuple[bool, str]:
 def validate_slack_integration(slack_token: str) -> bool:
     """function to validate Slack integration"""
     return True
+
+
+def validate_gitlab_integration(gitlab_token: str) -> tuple[bool, str]:
+    """Validate GitLab credentials through the same adapter used by scans."""
+    from core.sources import get_source_adapter
+    from core.sources.base import SourceAuthError, SourceNetworkError, SourceRateLimitError
+
+    try:
+        get_source_adapter("gitlab", token=gitlab_token).health_check()
+        return True, ""
+    except SourceAuthError as exc:
+        return False, str(exc)
+    except SourceRateLimitError as exc:
+        return False, f"Rate limit error: {exc}"
+    except SourceNetworkError as exc:
+        return False, f"Network error: {exc}"
+    except Exception as exc:
+        logger.error("event=validate_gitlab_integration_failed error=%s", exc, exc_info=True)
+        return False, f"Validation error: {exc}"
+
+
+def validate_source_integration(source: str, token: str) -> tuple[bool, str]:
+    from core.sources import get_source_adapter
+    from core.sources.base import SourceAuthError, SourceNetworkError, SourceRateLimitError
+
+    try:
+        get_source_adapter(source, token=token).health_check()
+        return True, ""
+    except SourceAuthError as exc:
+        return False, str(exc)
+    except SourceRateLimitError as exc:
+        return False, f"Rate limit error: {exc}"
+    except SourceNetworkError as exc:
+        return False, f"Network error: {exc}"
+    except Exception as exc:
+        logger.error("event=validate_source_integration_failed source=%s error=%s", source, exc, exc_info=True)
+        return False, f"Validation error: {exc}"

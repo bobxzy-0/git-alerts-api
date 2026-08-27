@@ -1,287 +1,50 @@
 import React, { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { integrationsApi } from '@/services/api';
+import type { IntegrationType, UserIntegration } from '@/types';
+
+type SourceProvider = Extract<IntegrationType, 'github' | 'gitlab' | 'gitee' | 'brave'>;
+const CONFIG = {
+  github: { name: 'GitHub', placeholder: 'ghp_xxxxxxxxxxxxxxxxxxxx', help: 'Use a token with repository and organization read access.' },
+  gitlab: { name: 'GitLab', placeholder: 'glpat-xxxxxxxxxxxxxxxxxxxx', help: 'Use a token with read_api access.' },
+  gitee: { name: 'Gitee', placeholder: 'xxxxxxxxxxxxxxxxxxxx', help: 'Use an API v5 personal access token with repository read access.' },
+  brave: { name: 'Brave Search', placeholder: 'BSA-xxxxxxxxxxxxxxxxxxxx', help: 'Use an official Brave Search API subscription key.' },
+} satisfies Record<SourceProvider, { name: string; placeholder: string; help: string }>;
 
 export const Integrations: React.FC = () => {
-  const queryClient = useQueryClient();
-  const [githubToken, setGithubToken] = useState('');
-  const [showTokenInput, setShowTokenInput] = useState(false);
-  const [isUpdatingToken, setIsUpdatingToken] = useState(false);
-
-  const { data: integrations = [], isLoading } = useQuery({
-    queryKey: ['integrations'],
-    queryFn: integrationsApi.list,
-  });
-
-  const addIntegrationMutation = useMutation({
-    mutationFn: integrationsApi.create,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['integrations'] });
-      setGithubToken('');
-      setShowTokenInput(false);
-      setIsUpdatingToken(false);
-    },
-  });
-
-  const validateIntegrationMutation = useMutation({
-    mutationFn: integrationsApi.validate,
-    onSuccess: () => {
-      // Wait a bit for validation to complete, then refresh
-      setTimeout(() => {
-        queryClient.invalidateQueries({ queryKey: ['integrations'] });
-      }, 2000);
-    },
-  });
-
-  const handleAddGitHub = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (githubToken.trim()) {
-      addIntegrationMutation.mutate({
-        provider: 'github',
-        token: githubToken.trim(),
-      });
-    }
-  };
-
-  const handleTestConnection = (integrationId: number) => {
-    validateIntegrationMutation.mutate(integrationId);
-  };
-
-  const githubIntegration = integrations.find((i) => i.provider === 'github');
-
-  return (
-    <div className="max-w-4xl space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold text-foreground">Integrations</h1>
-        <p className="text-muted-foreground mt-2">
-          Connect external services to GitAlerts
-        </p>
-      </div>
-
-      {/* GitHub Integration */}
-      <div className="bg-card border border-border rounded-lg p-6">
-        <div className="flex items-start justify-between mb-4">
-          <div>
-            <h2 className="text-xl font-semibold text-foreground">GitHub</h2>
-            <p className="text-sm text-muted-foreground mt-1">
-              Required for scanning repositories
-            </p>
-          </div>
-          {githubIntegration ? (
-            <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-              githubIntegration.status === 'connected'
-                ? 'bg-green-500/10 text-green-600'
-                : githubIntegration.status === 'pending'
-                ? 'bg-yellow-500/10 text-yellow-600'
-                : 'bg-red-500/10 text-red-600'
-            }`}>
-              {githubIntegration.status.charAt(0).toUpperCase() + githubIntegration.status.slice(1)}
-            </span>
-          ) : (
-            <span className="px-3 py-1 bg-yellow-500/10 text-yellow-600 rounded-full text-sm font-medium">
-              Not Connected
-            </span>
-          )}
-        </div>
-
-        {isLoading ? (
-          <div className="text-muted-foreground">Loading...</div>
-        ) : githubIntegration ? (
-          <div className="space-y-3">
-            {/* Show error message if failed */}
-            {githubIntegration.error_message && (
-              <div className="p-3 bg-destructive/10 border border-destructive rounded-lg">
-                <p className="text-sm text-destructive font-medium">Connection Error</p>
-                <p className="text-sm text-destructive mt-1">{githubIntegration.error_message}</p>
-              </div>
-            )}
-
-            {/* Integration Details */}
-            {!isUpdatingToken ? (
-              <>
-                <div className="p-3 bg-muted rounded-lg space-y-2">
-                  <p className="text-sm text-foreground">
-                    <span className="font-medium">Status:</span> {githubIntegration.status.charAt(0).toUpperCase() + githubIntegration.status.slice(1)}
-                  </p>
-                  <p className="text-sm text-foreground">
-                    <span className="font-medium">User:</span> {githubIntegration.user}
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    Connected: {new Date(githubIntegration.created_at).toLocaleString()}
-                  </p>
-                  {githubIntegration.last_validated_at && (
-                    <p className="text-sm text-muted-foreground">
-                      Last validated: {new Date(githubIntegration.last_validated_at).toLocaleString()}
-                    </p>
-                  )}
-                </div>
-
-                {githubIntegration.status === 'connected' && (
-                  <p className="text-sm text-muted-foreground">
-                    You can now create scans. The token is encrypted and stored securely.
-                  </p>
-                )}
-
-                {/* Action Buttons */}
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => handleTestConnection(githubIntegration.id)}
-                    disabled={validateIntegrationMutation.isPending}
-                    className="px-4 py-2 bg-primary text-primary-foreground rounded-lg font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
-                  >
-                    {validateIntegrationMutation.isPending ? 'Testing...' : 'Test Connection'}
-                  </button>
-                  <button
-                    onClick={() => setIsUpdatingToken(true)}
-                    className="px-4 py-2 border border-border rounded-lg font-medium hover:bg-accent transition-colors"
-                  >
-                    Update Token
-                  </button>
-                </div>
-              </>
-            ) : (
-              /* Update Token Form */
-              <form onSubmit={handleAddGitHub} className="space-y-3">
-                <div>
-                  <label className="block text-sm font-medium text-foreground mb-2">
-                    New GitHub Personal Access Token
-                  </label>
-                  <input
-                    type="password"
-                    value={githubToken}
-                    onChange={(e) => setGithubToken(e.target.value)}
-                    placeholder="ghp_xxxxxxxxxxxxxxxxxxxx"
-                    className="w-full px-3 py-2 bg-background border border-input rounded-md text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-                    required
-                  />
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Your token will be encrypted and stored securely
-                  </p>
-                </div>
-
-                {addIntegrationMutation.isError && (
-                  <div className="p-3 bg-destructive/10 border border-destructive rounded-lg">
-                    <p className="text-sm text-destructive">
-                      Failed to update token. Please check your token and try again.
-                    </p>
-                  </div>
-                )}
-
-                <div className="flex gap-2">
-                  <button
-                    type="submit"
-                    disabled={addIntegrationMutation.isPending}
-                    className="px-4 py-2 bg-primary text-primary-foreground rounded-lg font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
-                  >
-                    {addIntegrationMutation.isPending ? 'Updating...' : 'Update Token'}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsUpdatingToken(false);
-                      setGithubToken('');
-                    }}
-                    className="px-4 py-2 border border-border rounded-lg font-medium hover:bg-accent transition-colors"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </form>
-            )}
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {!showTokenInput ? (
-              <div className="space-y-3">
-                <p className="text-sm text-foreground">
-                  Connect your GitHub account to enable repository scanning.
-                </p>
-                <div className="p-4 bg-muted rounded-lg space-y-2">
-                  <p className="text-sm font-medium text-foreground">How to get a GitHub token:</p>
-                  <ol className="text-sm text-muted-foreground space-y-1 ml-4 list-decimal">
-                    <li>Go to GitHub Settings → Developer settings → Personal access tokens</li>
-                    <li>Click "Generate new token (classic)"</li>
-                    <li>
-                      Select scopes: <code className="px-1 py-0.5 bg-background rounded">repo</code>,{' '}
-                      <code className="px-1 py-0.5 bg-background rounded">read:org</code>,{' '}
-                      <code className="px-1 py-0.5 bg-background rounded">read:user</code>
-                    </li>
-                    <li>Generate and copy the token</li>
-                  </ol>
-                </div>
-                <button
-                  onClick={() => setShowTokenInput(true)}
-                  className="px-4 py-2 bg-primary text-primary-foreground rounded-lg font-medium hover:opacity-90 transition-opacity"
-                >
-                  Connect GitHub
-                </button>
-              </div>
-            ) : (
-              <form onSubmit={handleAddGitHub} className="space-y-3">
-                <div>
-                  <label className="block text-sm font-medium text-foreground mb-2">
-                    GitHub Personal Access Token
-                  </label>
-                  <input
-                    type="password"
-                    value={githubToken}
-                    onChange={(e) => setGithubToken(e.target.value)}
-                    placeholder="ghp_xxxxxxxxxxxxxxxxxxxx"
-                    className="w-full px-3 py-2 bg-background border border-input rounded-md text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-                    required
-                  />
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Your token will be encrypted and stored securely
-                  </p>
-                </div>
-
-                {addIntegrationMutation.isError && (
-                  <div className="p-3 bg-destructive/10 border border-destructive rounded-lg">
-                    <p className="text-sm text-destructive">
-                      Failed to connect GitHub. Please check your token and try again.
-                    </p>
-                  </div>
-                )}
-
-                <div className="flex gap-2">
-                  <button
-                    type="submit"
-                    disabled={addIntegrationMutation.isPending}
-                    className="px-4 py-2 bg-primary text-primary-foreground rounded-lg font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
-                  >
-                    {addIntegrationMutation.isPending ? 'Connecting...' : 'Connect'}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowTokenInput(false);
-                      setGithubToken('');
-                    }}
-                    className="px-4 py-2 border border-border rounded-lg font-medium hover:bg-accent transition-colors"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </form>
-            )}
-          </div>
-        )}
-      </div>
-
-      {/* Slack Integration (Placeholder) */}
-      <div className="bg-card border border-border rounded-lg p-6 opacity-50">
-        <div className="flex items-start justify-between mb-4">
-          <div>
-            <h2 className="text-xl font-semibold text-foreground">Slack</h2>
-            <p className="text-sm text-muted-foreground mt-1">
-              Get notifications about new findings
-            </p>
-          </div>
-          <span className="px-3 py-1 bg-muted text-muted-foreground rounded-full text-sm font-medium">
-            Coming Soon
-          </span>
-        </div>
-      </div>
-    </div>
-  );
+  const qc = useQueryClient();
+  const { data = [], isLoading } = useQuery({ queryKey: ['integrations'], queryFn: integrationsApi.list });
+  const create = useMutation({ mutationFn: integrationsApi.create, onSuccess: () => qc.invalidateQueries({ queryKey: ['integrations'] }) });
+  const validate = useMutation({ mutationFn: integrationsApi.validate, onSuccess: () => qc.invalidateQueries({ queryKey: ['integrations'] }) });
+  return <div className="max-w-4xl space-y-6">
+    <div><h1 className="text-3xl font-bold">Integrations</h1><p className="text-muted-foreground mt-2">Connect source APIs used for discovery and scanning.</p></div>
+    {isLoading ? <p>Loading...</p> : (Object.keys(CONFIG) as SourceProvider[]).map(provider => <IntegrationCard
+      key={provider} provider={provider} integration={data.find(item => item.provider === provider)}
+      busy={create.isPending || validate.isPending}
+      onSave={token => create.mutate({ provider, token })} onValidate={id => validate.mutate(id)}
+    />)}
+  </div>;
 };
+
+function IntegrationCard({ provider, integration, busy, onSave, onValidate }: {
+  provider: SourceProvider; integration?: UserIntegration; busy: boolean;
+  onSave: (token: string) => void; onValidate: (id: number) => void;
+}) {
+  const [token, setToken] = useState('');
+  const [editing, setEditing] = useState(!integration);
+  const config = CONFIG[provider];
+  const connected = integration?.status === 'connected';
+  return <section className="bg-card border rounded-lg p-6 space-y-4">
+    <div className="flex justify-between gap-4"><div><h2 className="text-xl font-semibold">{config.name}</h2><p className="text-sm text-muted-foreground">{config.help}</p></div>
+      <span className={`px-3 py-1 rounded-full text-sm h-fit ${connected ? 'bg-green-500/10 text-green-600' : 'bg-yellow-500/10 text-yellow-600'}`}>{integration?.status ?? 'not connected'}</span>
+    </div>
+    {integration?.error_message && <p className="p-3 bg-destructive/10 text-destructive rounded">{integration.error_message}</p>}
+    {integration && !editing ? <div className="space-y-3">
+      <p className="text-sm text-muted-foreground">Last validated: {integration.last_validated_at ? new Date(integration.last_validated_at).toLocaleString() : 'Never'}</p>
+      <div className="flex gap-2"><button disabled={busy} onClick={() => onValidate(integration.id)} className="px-4 py-2 bg-primary text-primary-foreground rounded">Test Connection</button><button onClick={() => setEditing(true)} className="px-4 py-2 border rounded">Update Token</button></div>
+    </div> : <form className="space-y-3" onSubmit={event => { event.preventDefault(); onSave(token.trim()); setToken(''); setEditing(false); }}>
+      <input type="password" required minLength={10} value={token} onChange={event => setToken(event.target.value)} placeholder={config.placeholder} className="w-full px-3 py-2 border rounded bg-background" />
+      <div className="flex gap-2"><button disabled={busy} className="px-4 py-2 bg-primary text-primary-foreground rounded">Save Token</button>{integration && <button type="button" onClick={() => setEditing(false)} className="px-4 py-2 border rounded">Cancel</button>}</div>
+    </form>}
+  </section>;
+}

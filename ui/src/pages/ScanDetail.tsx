@@ -15,7 +15,7 @@ export const ScanDetail: React.FC = () => {
     refetchInterval: (query) => {
       const data = query.state.data;
       // Auto-refresh every 3 seconds if scan is active
-      const isActive = data?.status === 'queued' || data?.status === 'in_progress';
+      const isActive = data?.execution_status === 'QUEUED' || data?.execution_status === 'RUNNING';
       return isActive ? 3000 : false;
     },
   });
@@ -36,10 +36,11 @@ export const ScanDetail: React.FC = () => {
 
   const getStatusBadge = (status: string) => {
     const styles = {
-      queued: 'bg-blue-500/10 text-blue-600',
-      in_progress: 'bg-yellow-500/10 text-yellow-600',
-      completed: 'bg-green-500/10 text-green-600',
-      failed: 'bg-red-500/10 text-red-600',
+      QUEUED: 'bg-blue-500/10 text-blue-600',
+      RUNNING: 'bg-yellow-500/10 text-yellow-600',
+      SUCCESS: 'bg-green-500/10 text-green-600',
+      DEGRADED: 'bg-orange-500/10 text-orange-600',
+      FAILED: 'bg-red-500/10 text-red-600',
     };
     return styles[status as keyof typeof styles] || 'bg-gray-500/10 text-gray-600';
   };
@@ -127,10 +128,18 @@ export const ScanDetail: React.FC = () => {
             <div>
               <h3 className="text-sm font-medium text-muted-foreground mb-2">Status</h3>
               <span
-                className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusBadge(scan.status)}`}
+                className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusBadge(scan.execution_status)}`}
               >
-                {scan.status.replace('_', ' ').toUpperCase()}
+                {scan.execution_status}
               </span>
+            </div>
+            <div>
+              <h3 className="text-sm font-medium text-muted-foreground mb-2">Monitoring Status</h3>
+              <p className="text-foreground text-lg">{scan.monitoring_status}</p>
+            </div>
+            <div>
+              <h3 className="text-sm font-medium text-muted-foreground mb-2">Result Status</h3>
+              <p className="text-foreground text-lg">{scan.result_status || '—'}</p>
             </div>
             <div>
               <h3 className="text-sm font-medium text-muted-foreground mb-2">Query/Value</h3>
@@ -142,6 +151,14 @@ export const ScanDetail: React.FC = () => {
             </div>
           </div>
         </div>
+
+        {(scan.error_code || scan.error_message) && (
+          <div className="border-t border-border pt-6">
+            <h2 className="text-xl font-semibold text-destructive mb-2">Execution Error</h2>
+            <p className="font-mono text-sm text-foreground">{scan.error_code}</p>
+            <p className="text-sm text-muted-foreground mt-1">{scan.error_message}</p>
+          </div>
+        )}
 
         {/* Statistics */}
         <div className="border-t border-border pt-6">

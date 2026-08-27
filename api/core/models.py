@@ -1,4 +1,5 @@
 from django.db import models
+from django.contrib.auth.models import User
 from scans.models import Scan
 
 class RepoScanHistory(models.Model):
@@ -66,3 +67,80 @@ class SystemSettings(models.Model):
     def delete(self, *args, **kwargs):
         """Prevent deletion of instance"""
         pass
+
+
+class SourceHealth(models.Model):
+    class Status(models.TextChoices):
+        HEALTHY = "HEALTHY", "Healthy"
+        WARNING = "WARNING", "Warning"
+        CRITICAL = "CRITICAL", "Critical"
+        UNKNOWN = "UNKNOWN", "Unknown"
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="source_health")
+    source = models.CharField(max_length=32)
+    status = models.CharField(max_length=16, choices=Status.choices, default=Status.UNKNOWN)
+    last_checked_at = models.DateTimeField(null=True, blank=True)
+    last_success_at = models.DateTimeField(null=True, blank=True)
+    last_failure_at = models.DateTimeField(null=True, blank=True)
+    result_count = models.PositiveIntegerField(default=0)
+    new_findings = models.PositiveIntegerField(default=0)
+    rate_limit_remaining = models.IntegerField(null=True, blank=True)
+    error_code = models.CharField(max_length=64, blank=True, default="")
+    error_message = models.TextField(blank=True, default="")
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["source"]
+        constraints = [
+            models.UniqueConstraint(fields=["user", "source"], name="unique_source_health_per_user")
+        ]
+
+
+class DetectionPattern(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="detection_patterns")
+    name = models.CharField(max_length=255)
+    finding_type = models.CharField(max_length=255)
+    pattern = models.CharField(max_length=1000)
+    ignore_case = models.BooleanField(default=False)
+    enabled = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["name"]
+        constraints = [models.UniqueConstraint(fields=["user", "name"], name="unique_detection_pattern_name_per_user")]
+
+
+class CodeFingerprint(models.Model):
+    class Kind(models.TextChoices):
+        BASELINE = "BASELINE", "Internal baseline"
+        CANDIDATE = "CANDIDATE", "Discovered candidate"
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="code_fingerprints")
+    name = models.CharField(max_length=255)
+    kind = models.CharField(max_length=16, choices=Kind.choices, default=Kind.BASELINE)
+    source_repository = models.URLField(max_length=1000, blank=True, default="")
+    file_path = models.CharField(max_length=1000, blank=True, default="")
+    content_sha256 = models.CharField(max_length=64, db_index=True)
+    token_count = models.PositiveIntegerField(default=0)
+    simhash = models.CharField(max_length=16)
+    minhash = models.JSONField(default=list)
+    tlsh = models.CharField(max_length=255, blank=True, default="")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+
+class SimilarityMatch(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="similarity_matches")
+    baseline = models.ForeignKey(CodeFingerprint, on_delete=models.CASCADE, related_name="baseline_matches")
+    candidate = models.ForeignKey(CodeFingerprint, on_delete=models.CASCADE, related_name="candidate_matches")
+    simhash_score = models.FloatField()
+    minhash_score = models.FloatField()
+    combined_score = models.FloatField(db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-combined_score"]
+        constraints = [models.UniqueConstraint(fields=["baseline", "candidate"], name="unique_code_similarity_pair")]

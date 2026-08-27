@@ -1,10 +1,12 @@
 import React from 'react';
 import { Link, Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
+import { useLanguage } from '@/i18n/LanguageContext';
 
 export const Layout: React.FC = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const { locale, setLocale } = useLanguage();
 
   const handleLogout = () => {
     logout();
@@ -22,6 +24,7 @@ export const Layout: React.FC = () => {
                 GitAlerts
               </Link>
               <nav className="flex space-x-6">
+                <Link to="/monitoring-profiles" className="text-sm font-medium text-foreground hover:text-primary transition-colors">Monitoring Profiles</Link>
                 <Link
                   to="/dashboard"
                   className="text-sm font-medium text-foreground hover:text-primary transition-colors"
@@ -41,6 +44,24 @@ export const Layout: React.FC = () => {
                   Findings
                 </Link>
                 <Link
+                  to="/monitor-rules"
+                  className="text-sm font-medium text-foreground hover:text-primary transition-colors"
+                >
+                  Monitor Rules
+                </Link>
+                <Link
+                  to="/source-health"
+                  className="text-sm font-medium text-foreground hover:text-primary transition-colors"
+                >
+                  Source Health
+                </Link>
+                <Link
+                  to="/notifications"
+                  className="text-sm font-medium text-foreground hover:text-primary transition-colors"
+                >
+                  Notifications
+                </Link>
+                <Link
                   to="/integrations"
                   className="text-sm font-medium text-foreground hover:text-primary transition-colors"
                 >
@@ -55,6 +76,15 @@ export const Layout: React.FC = () => {
               </nav>
             </div>
             <div className="flex items-center space-x-4">
+              <select
+                aria-label="Language"
+                value={locale}
+                onChange={(event) => setLocale(event.target.value === 'zh-CN' ? 'zh-CN' : 'en')}
+                className="rounded-md border border-input bg-background px-2 py-1 text-sm text-foreground"
+              >
+                <option value="zh-CN">简体中文</option>
+                <option value="en">English</option>
+              </select>
               {user && (
                 <>
                   <span className="text-sm text-muted-foreground">{user.username}</span>
