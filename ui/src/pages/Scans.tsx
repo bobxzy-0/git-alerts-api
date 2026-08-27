@@ -13,7 +13,7 @@ export const Scans: React.FC = () => {
   const [filterForm, setFilterForm] = useState({
     type: searchParams.get('type') || '',
     value: searchParams.get('value') || '',
-    status: searchParams.get('status') || '',
+    execution_status: searchParams.get('execution_status') || '',
     created_at: searchParams.get('created_at') || '',
     completed_at: searchParams.get('completed_at') || '',
   });
@@ -22,7 +22,7 @@ export const Scans: React.FC = () => {
   const filters = {
     type: searchParams.get('type') || undefined,
     value: searchParams.get('value') || undefined,
-    status: searchParams.get('status') || undefined,
+    execution_status: searchParams.get('execution_status') || undefined,
     created_at: searchParams.get('created_at') || undefined,
     completed_at: searchParams.get('completed_at') || undefined,
   };
@@ -34,7 +34,7 @@ export const Scans: React.FC = () => {
       const data = query.state.data;
       // Auto-refresh every 5 seconds if any scan is active
       const hasActiveScan = data?.some(
-        (scan) => scan.status === 'queued' || scan.status === 'in_progress'
+        (scan) => scan.execution_status === 'QUEUED' || scan.execution_status === 'RUNNING'
       );
       return hasActiveScan ? 5000 : false;
     },
@@ -90,7 +90,7 @@ export const Scans: React.FC = () => {
     setFilterForm({
       type: '',
       value: '',
-      status: '',
+      execution_status: '',
       created_at: '',
       completed_at: '',
     });
@@ -106,10 +106,11 @@ export const Scans: React.FC = () => {
 
   const getStatusBadge = (status: string) => {
     const styles = {
-      queued: 'bg-blue-500/10 text-blue-600',
-      in_progress: 'bg-yellow-500/10 text-yellow-600',
-      completed: 'bg-green-500/10 text-green-600',
-      failed: 'bg-red-500/10 text-red-600',
+      QUEUED: 'bg-blue-500/10 text-blue-600',
+      RUNNING: 'bg-yellow-500/10 text-yellow-600',
+      SUCCESS: 'bg-green-500/10 text-green-600',
+      DEGRADED: 'bg-orange-500/10 text-orange-600',
+      FAILED: 'bg-red-500/10 text-red-600',
     };
     return styles[status as keyof typeof styles] || 'bg-gray-500/10 text-gray-600';
   };
@@ -129,7 +130,7 @@ export const Scans: React.FC = () => {
 
   // Get active filter labels
   const activeFilters = Object.entries(filters)
-    .filter(([_, value]) => value !== undefined)
+    .filter(([, value]) => value !== undefined)
     .map(([key, value]) => `${key}: ${value}`);
 
   return (
@@ -246,15 +247,16 @@ export const Scans: React.FC = () => {
                 Status
               </label>
               <select
-                value={filterForm.status}
-                onChange={(e) => setFilterForm({ ...filterForm, status: e.target.value })}
+                value={filterForm.execution_status}
+                onChange={(e) => setFilterForm({ ...filterForm, execution_status: e.target.value })}
                 className="w-full px-3 py-2 bg-background border border-input rounded-md text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
               >
                 <option value="">All Statuses</option>
-                <option value="queued">Queued</option>
-                <option value="in_progress">In Progress</option>
-                <option value="completed">Completed</option>
-                <option value="failed">Failed</option>
+                <option value="QUEUED">Queued</option>
+                <option value="RUNNING">Running</option>
+                <option value="SUCCESS">Success</option>
+                <option value="DEGRADED">Degraded</option>
+                <option value="FAILED">Failed</option>
               </select>
             </div>
 
@@ -388,10 +390,10 @@ export const Scans: React.FC = () => {
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span
                         className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusBadge(
-                          scan.status
+                          scan.execution_status
                         )}`}
                       >
-                        {scan.status.replace('_', ' ').toUpperCase()}
+                        {scan.execution_status}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
