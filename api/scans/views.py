@@ -16,9 +16,15 @@ class ScanView(generics.ListCreateAPIView):
     serializer_class = ScanSerializer
     permission_classes = [IsAuthenticated]
 
-    filterset_fields = ["type", "value", "status", "created_at", "completed_at"]
+    filterset_fields = [
+        "type", "value", "execution_status", "monitoring_status",
+        "result_status", "created_at", "completed_at",
+    ]
     search_fields = ["value", "type"]
-    ordering_fields = ["created_at", "completed_at", "type", "status"]
+    ordering_fields = [
+        "created_at", "completed_at", "type", "execution_status",
+        "monitoring_status", "result_status",
+    ]
 
     def get_queryset(self):
         """Return scans created by the user"""
@@ -58,4 +64,3 @@ class ScanFindingsView(generics.ListAPIView):
             user=self.request.user,
         )
         return scan.findings.all()
-
