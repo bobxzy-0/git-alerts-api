@@ -79,7 +79,7 @@ export const Layout: React.FC = () => {
               <select
                 aria-label="Language"
                 value={locale}
-                onChange={(event) => setLocale(event.target.value as 'en' | 'zh-CN')}
+                onChange={(event) => setLocale(event.target.value === 'zh-CN' ? 'zh-CN' : 'en')}
                 className="rounded-md border border-input bg-background px-2 py-1 text-sm text-foreground"
               >
                 <option value="zh-CN">简体中文</option>

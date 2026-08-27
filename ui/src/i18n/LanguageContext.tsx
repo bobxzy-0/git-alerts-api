@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { translateText } from './translations';
+import i18n from './config';
 
 export type Locale = 'en' | 'zh-CN';
 
@@ -36,7 +37,7 @@ function translateElement(root: Node, locale: Locale) {
   }
 
   const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
-  const nodes: Text[] = [];
+  const nodes: Text[] = root instanceof Text ? [root] : [];
   while (walker.nextNode()) nodes.push(walker.currentNode as Text);
   for (const node of nodes) {
     const current = node.nodeValue ?? '';
@@ -70,26 +71,29 @@ export const LanguageProvider: React.FC<React.PropsWithChildren> = ({ children }
 
   useEffect(() => {
     document.documentElement.lang = locale;
+    void i18n.changeLanguage(locale);
     const apply = () => translateElement(document.body, locale);
     apply();
+    if (locale === 'en') return;
     const observer = new MutationObserver((mutations) => {
       observer.disconnect();
       for (const mutation of mutations) {
         if (mutation.type === 'characterData' && mutation.target.parentNode) {
           translateElement(mutation.target.parentNode, locale);
         }
+        if (mutation.type === 'attributes') translateElement(mutation.target, locale);
         mutation.addedNodes.forEach((node) => translateElement(node, locale));
       }
-      observer.observe(document.body, { childList: true, subtree: true, characterData: true });
+      observer.observe(document.body, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ['placeholder', 'title', 'aria-label'] });
     });
-    observer.observe(document.body, { childList: true, subtree: true, characterData: true });
+    observer.observe(document.body, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ['placeholder', 'title', 'aria-label'] });
     return () => observer.disconnect();
   }, [locale]);
 
   const value = useMemo(() => ({
     locale,
     setLocale,
-    t: (text: string) => locale === 'zh-CN' ? translateText(text) : text,
+    t: (text: string) => locale === 'zh-CN' ? i18n.t(text, { defaultValue: translateText(text) }) : text,
   }), [locale]);
 
   return <LanguageContext.Provider value={value}>{children}</LanguageContext.Provider>;
