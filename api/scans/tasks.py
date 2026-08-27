@@ -8,7 +8,9 @@ from core.clients.github_client import (
     GitHubClient,
     GitHubAPIError,
     GitHubAuthError,
+    GitHubNetworkError,
     GitHubRateLimitError,
+    GitHubResponseError,
 )
 from core.clients.trufflehog_client import TruffleHogClient
 from core.services.scan_orchestrator import ScanOrchestrator
@@ -73,7 +75,7 @@ def run_scan_task(scan_id):
             )
             _mark_failed(scan, result_status, "GITHUB_PREFLIGHT_FAILED", error_message)
             if result_status == Scan.ResultStatus.FAILED_NETWORK:
-                raise GitHubAPIError(error_message)
+                raise GitHubNetworkError(error_message)
             raise GitHubAuthError(error_message)
 
         integration.last_validated_at = timezone.now()
@@ -173,10 +175,22 @@ def run_scan_task(scan_id):
             ])
         raise
 
-    except GitHubAPIError as e:
+    except GitHubNetworkError as e:
         logger.error(f"event=scan_network_failed scan_id={scan_id} error={e}", exc_info=True)
         if scan:
             _mark_failed(scan, Scan.ResultStatus.FAILED_NETWORK, "GITHUB_NETWORK_FAILED", str(e))
+        raise
+
+    except GitHubResponseError as e:
+        logger.error(f"event=scan_response_failed scan_id={scan_id} error={e}", exc_info=True)
+        if scan:
+            _mark_failed(scan, Scan.ResultStatus.FAILED_INTERNAL, "GITHUB_RESPONSE_INVALID", str(e))
+        raise
+
+    except GitHubAPIError as e:
+        logger.error(f"event=scan_api_failed scan_id={scan_id} error={e}", exc_info=True)
+        if scan:
+            _mark_failed(scan, Scan.ResultStatus.FAILED_INTERNAL, "GITHUB_API_ERROR", str(e))
         raise
 
     except Exception as e:
