@@ -3,7 +3,12 @@ from unittest.mock import patch
 import pytest
 from django.contrib.auth.models import User
 
-from core.clients.github_client import GitHubAPIError, GitHubAuthError, GitHubRateLimitError
+from core.clients.github_client import (
+    GitHubAuthError,
+    GitHubNetworkError,
+    GitHubRateLimitError,
+    GitHubResponseError,
+)
 from integrations.models import UserIntegration
 from scans.models import Scan
 from scans.tasks import run_scan_task
@@ -103,8 +108,9 @@ def test_all_repository_failures_are_internal_failure(scan_with_integration):
     ("exception", "execution", "monitoring", "result"),
     [
         (GitHubAuthError("bad token"), "FAILED", "UNKNOWN", "FAILED_AUTH"),
-        (GitHubAPIError("network down"), "FAILED", "UNKNOWN", "FAILED_NETWORK"),
+        (GitHubNetworkError("network down"), "FAILED", "UNKNOWN", "FAILED_NETWORK"),
         (GitHubRateLimitError("limited"), "DEGRADED", "WARNING", "DEGRADED_RATE_LIMIT"),
+        (GitHubResponseError("bad json"), "FAILED", "UNKNOWN", "FAILED_INTERNAL"),
         (RuntimeError("broken"), "FAILED", "UNKNOWN", "FAILED_INTERNAL"),
     ],
 )
