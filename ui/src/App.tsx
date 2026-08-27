@@ -13,6 +13,7 @@ import { ScanDetail } from '@/pages/ScanDetail';
 import { Findings } from '@/pages/Findings';
 import { Integrations } from '@/pages/Integrations';
 import { Settings } from '@/pages/Settings';
+import { LanguageProvider } from '@/i18n/LanguageContext';
 
 // Create a client
 const queryClient = new QueryClient({
@@ -28,9 +29,10 @@ const queryClient = new QueryClient({
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <Router>
-          <Routes>
+      <LanguageProvider>
+        <AuthProvider>
+          <Router>
+            <Routes>
             {/* Public routes */}
             <Route path="/login" element={<Login />} />
 
@@ -54,9 +56,10 @@ function App() {
 
             {/* Catch all */}
             <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
-        </Router>
-      </AuthProvider>
+            </Routes>
+          </Router>
+        </AuthProvider>
+      </LanguageProvider>
       <ReactQueryDevtools initialIsOpen={false} />
     </QueryClientProvider>
   );
