@@ -2,8 +2,8 @@ from logging import getLogger
 from rest_framework import generics
 from rest_framework.permissions import IsAuthenticated
 from django.shortcuts import get_object_or_404
-from .serializers import MonitorRuleSerializer, MonitoringProfileSerializer, ScanSerializer
-from .models import MonitorRule, MonitoringProfile, Scan
+from .serializers import ExcludedRepositorySerializer, MonitorRuleSerializer, MonitoringProfileSerializer, ScanRepositorySerializer, ScanSerializer
+from .models import ExcludedRepository, MonitorRule, MonitoringProfile, Scan, ScanRepository
 from findings.serializers import FindingSerializer
 from .tasks import run_scan_task
 
@@ -100,3 +100,33 @@ class MonitoringProfileDetailsView(generics.RetrieveUpdateDestroyAPIView):
 
     def get_queryset(self):
         return MonitoringProfile.objects.filter(user=self.request.user)
+
+
+class ScanRepositoryView(generics.ListAPIView):
+    serializer_class = ScanRepositorySerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        scan = get_object_or_404(Scan, pk=self.kwargs["pk"], user=self.request.user)
+        return ScanRepository.objects.filter(scan=scan).select_related("scan", "excluded_repository")
+
+
+class ExcludedRepositoryView(generics.ListCreateAPIView):
+    serializer_class = ExcludedRepositorySerializer
+    permission_classes = [IsAuthenticated]
+    filterset_fields = ["source", "enabled"]
+    search_fields = ["repository_url", "owner", "repository", "reason"]
+
+    def get_queryset(self):
+        return ExcludedRepository.objects.filter(user=self.request.user)
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
+
+
+class ExcludedRepositoryDetailsView(generics.RetrieveUpdateDestroyAPIView):
+    serializer_class = ExcludedRepositorySerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return ExcludedRepository.objects.filter(user=self.request.user)

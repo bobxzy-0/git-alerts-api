@@ -4,7 +4,8 @@ from logging import getLogger
 from django.utils import timezone
 from django.db.models import F
 from datetime import timedelta
-from scans.models import RepositoryScanQueue, Scan, SourceType
+from scans.models import ExcludedRepository, RepositoryScanQueue, Scan, ScanRepository, SourceType
+from scans.services.repositories import normalize_repository_url
 from findings.models import (
     Finding,
     FindingOccurrence,
@@ -54,17 +55,27 @@ class ScanOrchestrator:
             org_repos_only=self.org_repos_only,
         )
 
+        repository_records = self._record_discovered_targets(targets)
+        active_records = [
+            record for record in repository_records
+            if record.status != ScanRepository.Status.EXCLUDED
+        ]
+
+        self.scan.total_repositories = len(repository_records)
+        self.scan.ignored_repositories = len(repository_records) - len(active_records)
+        self.scan.save(update_fields=["total_repositories", "ignored_repositories", "updated_at"])
+
         if self.scan.source == SourceType.BRAVE:
-            self.scan.total_repositories = len(targets)
-            self.scan.save(update_fields=["total_repositories", "updated_at"])
-            for target in targets:
+            for record in active_records:
                 item, created = RepositoryScanQueue.objects.get_or_create(
                     user=self.scan.user,
                     discovery_scan=self.scan,
-                    source=target.source,
-                    repository_url=target.url,
-                    defaults={"owner": target.owner, "repository": target.name},
+                    source=record.source,
+                    repository_url=record.repository_url,
+                    defaults={"owner": record.owner, "repository": record.repository},
                 )
+                record.status = ScanRepository.Status.QUEUED
+                record.save(update_fields=["status", "updated_at"])
                 if created:
                     from scans.tasks import process_repository_scan_queue
                     try:
@@ -80,24 +91,24 @@ class ScanOrchestrator:
             f"event=scan_orchestrator_targets_fetched scan_id={self.scan.id} source={self.scan.source} target_count={len(targets)}"
         )
 
-        unique_repos_to_scan = {target.url for target in targets}
-
-        self.scan.total_repositories = len(unique_repos_to_scan)
-        self.scan.save()
-
         logger.info(
-            f"event=scan_orchestrator_unique_repos_fetched scan_id={self.scan.id} repo_count={len(unique_repos_to_scan)}"
+            f"event=scan_orchestrator_unique_repos_fetched scan_id={self.scan.id} repo_count={len(repository_records)}"
         )
 
-        repos_to_scan = self.filtered_repos(unique_repos_to_scan)
+        repos_to_scan = self.filtered_repos(active_records)
 
-        self.scan.ignored_repositories = len(unique_repos_to_scan) - len(repos_to_scan)
-        self.scan.save()
+        self.scan.ignored_repositories = len(repository_records) - len(repos_to_scan)
+        self.scan.save(update_fields=["ignored_repositories", "updated_at"])
 
-        for repo in repos_to_scan:
+        for record in repos_to_scan:
+            repo = record.repository_url
             history = RepoScanHistory.objects.create(
                 repository=repo, status=RepoScanHistory.ScanStatus.STARTED
             )
+
+            record.status = ScanRepository.Status.SCANNING
+            record.error_message = ""
+            record.save(update_fields=["status", "error_message", "updated_at"])
 
             self.scan.scanned_repositories += 1
             self.scan.save()
@@ -123,6 +134,9 @@ class ScanOrchestrator:
                 history.status = RepoScanHistory.ScanStatus.FAILED
                 history.completed_at = timezone.now()
                 history.save()
+                record.status = ScanRepository.Status.FAILED
+                record.error_message = "All detection engines failed"
+                record.save(update_fields=["status", "error_message", "updated_at"])
 
                 logger.error(
                     f"event=scan_orchestrator_repo_scan_failed scan={self.scan.id} repo={repo} error=all_detection_engines_failed",
@@ -132,28 +146,61 @@ class ScanOrchestrator:
 
             if engine_failures:
                 self.repository_failures += 1
+                record.status = ScanRepository.Status.DEGRADED
+                record.error_message = f"{engine_failures} detection engine(s) failed"
+            else:
+                record.status = ScanRepository.Status.COMPLETED
 
             history.status = RepoScanHistory.ScanStatus.COMPLETED
             history.completed_at = timezone.now()
             history.save()
             self.repository_successes += 1
+            before_findings = self.scan.total_findings
             self.save_findings(repo, findings)
+            record.findings_count = self.scan.total_findings - before_findings
+            record.save(update_fields=["status", "error_message", "findings_count", "updated_at"])
 
-    def filtered_repos(self, repositories: set[str]) -> list:
+    def _record_discovered_targets(self, targets):
+        exclusions = {
+            (item.source, item.normalized_url): item
+            for item in ExcludedRepository.objects.filter(user=self.scan.user, enabled=True)
+        }
+        records = {}
+        for target in targets:
+            normalized_url = normalize_repository_url(target.url)
+            key = (target.source, normalized_url)
+            if key in records:
+                continue
+            excluded = exclusions.get(key)
+            record, _ = ScanRepository.objects.update_or_create(
+                scan=self.scan, source=target.source, normalized_url=normalized_url,
+                defaults={
+                    "repository_url": target.url, "owner": target.owner,
+                    "repository": target.name,
+                    "status": ScanRepository.Status.EXCLUDED if excluded else ScanRepository.Status.DISCOVERED,
+                    "excluded_repository": excluded, "error_message": "",
+                },
+            )
+            records[key] = record
+        return list(records.values())
+
+    def filtered_repos(self, repositories: list[ScanRepository]) -> list[ScanRepository]:
         """Filters repository for scanning based on different filters"""
         filterd_repositories = []
-        for repo in repositories:
-            if self.is_recently_scanned(repo):
+        for record in repositories:
+            if self.is_recently_scanned(record.repository_url):
                 logger.info(
-                    f"event=scan_orchestrator_skipped_recently_scanned_repository repository={repo}"
+                    f"event=scan_orchestrator_skipped_recently_scanned_repository repository={record.repository_url}"
                 )
                 RepoScanHistory.objects.create(
-                    repository=repo,
+                    repository=record.repository_url,
                     status=RepoScanHistory.ScanStatus.SKIPPED,
                     completed_at=timezone.now(),
                 )
+                record.status = ScanRepository.Status.SKIPPED_RECENT
+                record.save(update_fields=["status", "updated_at"])
             else:
-                filterd_repositories.append(repo)
+                filterd_repositories.append(record)
 
         return filterd_repositories
 

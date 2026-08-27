@@ -19,6 +19,8 @@ import type {
   SourceHealth,
   NotificationChannel,
   MonitoringProfile,
+  ScanRepository,
+  ExcludedRepository,
 } from '@/types';
 
 // Auth API
@@ -101,6 +103,14 @@ export const scansApi = {
     );
     return response.data;
   },
+  getRepositories: async (scanId: number): Promise<ScanRepository[]> => (await apiClient.get<ScanRepository[]>(`/scans/${scanId}/repositories/`)).data,
+};
+
+export const excludedRepositoriesApi = {
+  list: async (): Promise<ExcludedRepository[]> => (await apiClient.get<ExcludedRepository[]>('/excluded-repositories/')).data,
+  create: async (data: Pick<ExcludedRepository, 'source' | 'repository_url' | 'owner' | 'repository' | 'reason' | 'enabled'>): Promise<ExcludedRepository> => (await apiClient.post<ExcludedRepository>('/excluded-repositories/', data)).data,
+  update: async (id: number, data: Partial<ExcludedRepository>): Promise<ExcludedRepository> => (await apiClient.patch<ExcludedRepository>(`/excluded-repositories/${id}/`, data)).data,
+  delete: async (id: number): Promise<void> => { await apiClient.delete(`/excluded-repositories/${id}/`); },
 };
 
 // Findings API

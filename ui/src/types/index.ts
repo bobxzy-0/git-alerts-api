@@ -193,3 +193,19 @@ export interface MonitoringProfile {
   gitlab_groups: string[]; custom_keywords: string[];
   interval_minutes: MonitorRule['interval_minutes']; generated_rule_count: number;
 }
+
+export type ScanRepositoryStatus = 'DISCOVERED' | 'EXCLUDED' | 'SKIPPED_RECENT' | 'QUEUED' | 'SCANNING' | 'COMPLETED' | 'DEGRADED' | 'FAILED';
+
+export interface ScanRepository {
+  id: number; scan: number; source: SourceType; repository_url: string;
+  normalized_url: string; owner: string; repository: string;
+  status: ScanRepositoryStatus; error_message: string; findings_count: number;
+  excluded_repository: number | null; is_permanently_excluded: boolean;
+  created_at: string; updated_at: string;
+}
+
+export interface ExcludedRepository {
+  id: number; source: SourceType; repository_url: string; normalized_url: string;
+  owner: string; repository: string; reason: string; enabled: boolean;
+  created_at: string; updated_at: string;
+}
