@@ -17,6 +17,7 @@ import { MonitorRules } from '@/pages/MonitorRules';
 import { SourceHealth } from '@/pages/SourceHealth';
 import { Notifications } from '@/pages/Notifications';
 import { MonitoringProfiles } from '@/pages/MonitoringProfiles';
+import { ExcludedRepositories } from '@/pages/ExcludedRepositories';
 import { LanguageProvider } from '@/i18n/LanguageContext';
 
 // Create a client
@@ -60,6 +61,7 @@ function App() {
               <Route path="/source-health" element={<SourceHealth />} />
               <Route path="/notifications" element={<Notifications />} />
               <Route path="/monitoring-profiles" element={<MonitoringProfiles />} />
+              <Route path="/excluded-repositories" element={<ExcludedRepositories />} />
             </Route>
 
             {/* Catch all */}

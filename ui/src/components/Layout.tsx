@@ -19,12 +19,13 @@ export const Layout: React.FC = () => {
       <header className="border-b border-border bg-card">
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-8">
+            <div className="flex items-center gap-6 min-w-0">
               <Link to="/" className="text-2xl font-bold text-primary">
                 GitAlerts
               </Link>
-              <nav className="flex space-x-6">
+              <nav className="flex flex-wrap items-center gap-x-4 gap-y-2">
                 <Link to="/monitoring-profiles" className="text-sm font-medium text-foreground hover:text-primary transition-colors">Monitoring Profiles</Link>
+                <Link to="/excluded-repositories" className="text-sm font-medium text-foreground hover:text-primary transition-colors">Excluded Repositories</Link>
                 <Link
                   to="/dashboard"
                   className="text-sm font-medium text-foreground hover:text-primary transition-colors"

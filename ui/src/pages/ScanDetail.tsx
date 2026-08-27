@@ -1,7 +1,8 @@
 import React from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { scansApi } from '@/services/api';
+import { excludedRepositoriesApi, scansApi } from '@/services/api';
+import type { ScanRepository } from '@/types';
 
 export const ScanDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -20,6 +21,28 @@ export const ScanDetail: React.FC = () => {
     },
   });
 
+  const { data: repositories = [] } = useQuery({
+    queryKey: ['scan-repositories', id],
+    queryFn: () => scansApi.getRepositories(Number(id)),
+    enabled: !!id,
+    refetchInterval: scan?.execution_status === 'RUNNING' ? 3000 : false,
+  });
+
+  const excludeRepositoryMutation = useMutation({
+    mutationFn: ({ repository, reason }: { repository: ScanRepository; reason: string }) => excludedRepositoriesApi.create({
+      source: repository.source,
+      repository_url: repository.repository_url,
+      owner: repository.owner,
+      repository: repository.repository,
+      reason,
+      enabled: true,
+    }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['scan-repositories', id] });
+      queryClient.invalidateQueries({ queryKey: ['excluded-repositories'] });
+    },
+  });
+
   const deleteScanMutation = useMutation({
     mutationFn: scansApi.delete,
     onSuccess: () => {
@@ -31,6 +54,14 @@ export const ScanDetail: React.FC = () => {
   const handleDeleteScan = () => {
     if (scan && window.confirm(`Are you sure you want to delete the scan "${scan.value}"? This action cannot be undone.`)) {
       deleteScanMutation.mutate(scan.id);
+    }
+  };
+
+  const handleExcludeRepository = (repository: ScanRepository) => {
+    const reason = window.prompt('Reason for permanently excluding this repository:', 'Not in monitoring scope');
+    if (reason === null) return;
+    if (window.confirm(`Permanently exclude ${repository.repository_url} from future scans? Historical scans and findings will be retained.`)) {
+      excludeRepositoryMutation.mutate({ repository, reason: reason.trim() });
     }
   };
 
@@ -186,6 +217,23 @@ export const ScanDetail: React.FC = () => {
               </p>
             </div>
           </div>
+        </div>
+
+        {/* Timestamps */}
+        <div className="border-t border-border pt-6">
+          <div className="flex items-center justify-between mb-4">
+            <div><h2 className="text-xl font-semibold text-foreground">Repositories</h2><p className="text-sm text-muted-foreground">Repositories discovered by this query and their scan disposition.</p></div>
+            <Link to="/excluded-repositories" className="text-sm text-primary hover:underline">Manage exclusions</Link>
+          </div>
+          {repositories.length === 0 ? <p className="text-sm text-muted-foreground">No repositories discovered.</p> : (
+            <div className="overflow-x-auto border rounded-lg"><table className="w-full text-sm"><thead className="bg-muted"><tr><th className="text-left p-3">Repository</th><th className="text-left p-3">Source</th><th className="text-left p-3">Status</th><th className="text-right p-3">Findings</th><th className="text-right p-3">Action</th></tr></thead><tbody className="divide-y">{repositories.map(repository => <tr key={repository.id}>
+              <td className="p-3"><a href={repository.repository_url} target="_blank" rel="noreferrer" className="font-medium text-primary hover:underline">{repository.owner ? `${repository.owner}/${repository.repository}` : repository.repository_url}</a>{repository.error_message && <p className="text-xs text-destructive mt-1">{repository.error_message}</p>}</td>
+              <td className="p-3 uppercase text-xs">{repository.source}</td>
+              <td className="p-3"><span className={`px-2 py-1 rounded-full text-xs font-medium ${repository.status === 'COMPLETED' ? 'bg-green-500/10 text-green-600' : repository.status === 'EXCLUDED' ? 'bg-slate-500/10 text-slate-600' : repository.status === 'FAILED' ? 'bg-red-500/10 text-red-600' : repository.status === 'DEGRADED' ? 'bg-orange-500/10 text-orange-600' : 'bg-blue-500/10 text-blue-600'}`}>{repository.status}</span></td>
+              <td className="p-3 text-right">{repository.findings_count}</td>
+              <td className="p-3 text-right">{repository.is_permanently_excluded ? <span className="text-xs text-muted-foreground">Permanently excluded</span> : <button disabled={excludeRepositoryMutation.isPending} onClick={() => handleExcludeRepository(repository)} className="text-destructive hover:underline">Exclude permanently</button>}</td>
+            </tr>)}</tbody></table></div>
+          )}
         </div>
 
         {/* Timestamps */}

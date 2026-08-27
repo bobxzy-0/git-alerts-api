@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import MonitorRule, MonitoringProfile, Scan, SourceType
+from .models import ExcludedRepository, MonitorRule, MonitoringProfile, Scan, ScanRepository, SourceType
 from .services.monitoring_profiles import sync_profile_rules
 from integrations.models import UserIntegration
 
@@ -110,3 +110,40 @@ class MonitoringProfileSerializer(serializers.ModelSerializer):
         profile = super().update(instance, validated_data)
         sync_profile_rules(profile)
         return profile
+
+
+class ExcludedRepositorySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ExcludedRepository
+        fields = "__all__"
+        read_only_fields = ["user", "normalized_url", "created_at", "updated_at"]
+
+    def validate(self, attrs):
+        from .services.repositories import normalize_repository_url
+        user = self.context["request"].user
+        source = attrs.get("source", getattr(self.instance, "source", None))
+        repository_url = attrs.get("repository_url", getattr(self.instance, "repository_url", ""))
+        queryset = ExcludedRepository.objects.filter(
+            user=user, source=source,
+            normalized_url=normalize_repository_url(repository_url),
+        )
+        if self.instance:
+            queryset = queryset.exclude(pk=self.instance.pk)
+        if queryset.exists():
+            raise serializers.ValidationError("This repository is already in the permanent exclusion list.")
+        return attrs
+
+
+class ScanRepositorySerializer(serializers.ModelSerializer):
+    is_permanently_excluded = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ScanRepository
+        fields = "__all__"
+        read_only_fields = [field.name for field in ScanRepository._meta.fields]
+
+    def get_is_permanently_excluded(self, obj):
+        return ExcludedRepository.objects.filter(
+            user=obj.scan.user, source=obj.source,
+            normalized_url=obj.normalized_url, enabled=True,
+        ).exists()

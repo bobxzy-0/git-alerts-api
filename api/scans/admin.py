@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import MonitorRule, MonitoringProfile, RepositoryScanQueue, Scan
+from .models import ExcludedRepository, MonitorRule, MonitoringProfile, RepositoryScanQueue, Scan, ScanRepository
 
 @admin.register(Scan)
 class ScanAdmin(admin.ModelAdmin):
@@ -36,3 +36,17 @@ class RepositoryScanQueueAdmin(admin.ModelAdmin):
 class MonitoringProfileAdmin(admin.ModelAdmin):
     list_display = ("name", "user", "enabled", "interval_minutes", "updated_at")
     list_filter = ("enabled", "interval_minutes")
+
+
+@admin.register(ExcludedRepository)
+class ExcludedRepositoryAdmin(admin.ModelAdmin):
+    list_display = ("source", "owner", "repository", "user", "enabled", "created_at")
+    list_filter = ("source", "enabled")
+    search_fields = ("repository_url", "owner", "repository", "reason", "user__username")
+
+
+@admin.register(ScanRepository)
+class ScanRepositoryAdmin(admin.ModelAdmin):
+    list_display = ("source", "owner", "repository", "scan", "status", "findings_count")
+    list_filter = ("source", "status")
+    search_fields = ("repository_url", "owner", "repository")

@@ -185,3 +185,54 @@ class RepositoryScanQueue(models.Model):
     class Meta:
         ordering = ["-created_at"]
         constraints = [models.UniqueConstraint(fields=["discovery_scan", "source", "repository_url"], name="unique_discovered_repository_per_scan")]
+
+
+class ExcludedRepository(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="excluded_repositories")
+    source = models.CharField(max_length=32, choices=SourceType.choices)
+    repository_url = models.URLField(max_length=1000)
+    normalized_url = models.CharField(max_length=1000, db_index=True)
+    owner = models.CharField(max_length=255, blank=True, default="")
+    repository = models.CharField(max_length=255, blank=True, default="")
+    reason = models.CharField(max_length=500, blank=True, default="")
+    enabled = models.BooleanField(default=True, db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def save(self, *args, **kwargs):
+        from .services.repositories import normalize_repository_url
+        self.normalized_url = normalize_repository_url(self.repository_url)
+        super().save(*args, **kwargs)
+
+    class Meta:
+        ordering = ["source", "owner", "repository"]
+        constraints = [models.UniqueConstraint(fields=["user", "source", "normalized_url"], name="unique_excluded_repository_per_user")]
+
+
+class ScanRepository(models.Model):
+    class Status(models.TextChoices):
+        DISCOVERED = "DISCOVERED", "Discovered"
+        EXCLUDED = "EXCLUDED", "Permanently excluded"
+        SKIPPED_RECENT = "SKIPPED_RECENT", "Recently scanned"
+        QUEUED = "QUEUED", "Queued"
+        SCANNING = "SCANNING", "Scanning"
+        COMPLETED = "COMPLETED", "Completed"
+        DEGRADED = "DEGRADED", "Partially scanned"
+        FAILED = "FAILED", "Failed"
+
+    scan = models.ForeignKey(Scan, on_delete=models.CASCADE, related_name="repositories")
+    source = models.CharField(max_length=32, choices=SourceType.choices)
+    repository_url = models.URLField(max_length=1000)
+    normalized_url = models.CharField(max_length=1000, db_index=True)
+    owner = models.CharField(max_length=255, blank=True, default="")
+    repository = models.CharField(max_length=255, blank=True, default="")
+    status = models.CharField(max_length=32, choices=Status.choices, default=Status.DISCOVERED, db_index=True)
+    excluded_repository = models.ForeignKey(ExcludedRepository, null=True, blank=True, on_delete=models.SET_NULL, related_name="scan_records")
+    error_message = models.TextField(blank=True, default="")
+    findings_count = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["source", "owner", "repository"]
+        constraints = [models.UniqueConstraint(fields=["scan", "source", "normalized_url"], name="unique_repository_per_scan")]
