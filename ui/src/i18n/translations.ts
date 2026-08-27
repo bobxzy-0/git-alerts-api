@@ -1,5 +1,11 @@
 export const zhCN: Record<string, string> = {
   'Dashboard': '仪表盘', 'Scans': '扫描任务', 'Findings': '发现项',
+  'Monitor Rules': '监控规则', 'Source Health': '数据源健康',
+  'Monitoring Profiles': '监控配置档案', 'Profile name': '档案名称', 'Company name': '公司名称', 'Create Profile': '创建档案',
+  'Notifications': '通知', 'Channel name': '通知渠道名称', 'Add Channel': '添加渠道',
+  'Overall Health': '整体健康状态', 'New Findings': '新发现项',
+  'Resolved': '已解决', 'Sources': '数据源', 'Scan Trend': '扫描趋势',
+  'Rule name': '规则名称', 'Target or query': '目标或查询条件', 'Add Rule': '添加规则',
   'Integrations': '集成', 'Settings': '设置', 'Logout': '退出登录',
   'New Scan': '新建扫描', 'Total Scans': '扫描总数', 'Total Findings': '发现项总数',
   'Active Scans': '活动扫描', 'View all scans': '查看全部扫描',

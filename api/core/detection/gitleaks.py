@@ -1,0 +1,32 @@
+import json
+import subprocess
+import tempfile
+
+from .base import BaseDetectionEngine, DetectionEngineError
+
+
+class GitleaksEngine(BaseDetectionEngine):
+    name = "gitleaks"
+
+    def scan_repository(self, repository_url, *, only_verified=True):
+        with tempfile.TemporaryDirectory(prefix="gitalerts-gitleaks-") as directory:
+            try:
+                subprocess.run(["git", "clone", "--quiet", "--mirror", repository_url, directory], check=True, timeout=300, capture_output=True, text=True)
+                result = subprocess.run(
+                    ["gitleaks", "git", directory, "--report-format", "json", "--report-path", "-", "--exit-code", "0"],
+                    check=True, timeout=600, capture_output=True, text=True,
+                )
+                payload = json.loads(result.stdout or "[]")
+            except (subprocess.SubprocessError, json.JSONDecodeError) as exc:
+                raise DetectionEngineError(f"Gitleaks scan failed: {exc}") from exc
+        if not isinstance(payload, list):
+            raise DetectionEngineError("Gitleaks returned a non-list report")
+        return [{
+            "repository": repository_url,
+            "commit": item.get("Commit"), "file": item.get("File"),
+            "line": item.get("StartLine"), "author": item.get("Email"),
+            "type": item.get("RuleID") or "Gitleaks Secret",
+            "description": item.get("Description") or "Detected by Gitleaks",
+            "value": item.get("Secret") or item.get("Match") or "",
+            "verified": False,
+        } for item in payload]

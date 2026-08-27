@@ -1,13 +1,12 @@
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 import pytest
 from django.contrib.auth.models import User
 
-from core.clients.github_client import (
-    GitHubAuthError,
-    GitHubNetworkError,
-    GitHubRateLimitError,
-    GitHubResponseError,
+from core.models import SourceHealth
+from core.sources import (
+    AdapterHealth, SourceAuthError, SourceNetworkError, SourceRateLimitError,
+    SourceResponseError,
 )
 from integrations.models import UserIntegration
 from scans.models import Scan
@@ -34,9 +33,11 @@ def run_with_orchestrator(scan, *, repositories, findings, successes=0, failures
             total_findings=findings,
         )
 
+    adapter = Mock()
+    adapter.health_check.return_value = AdapterHealth(True, 4999)
     with (
         patch.object(UserIntegration, "get_token", return_value="github-token"),
-        patch("scans.tasks.validate_github_integration", return_value=(True, "")),
+        patch("scans.tasks.get_source_adapter", return_value=adapter),
         patch("scans.tasks.ScanOrchestrator") as orchestrator_class,
     ):
         orchestrator = orchestrator_class.return_value
@@ -56,6 +57,10 @@ def test_zero_search_results_are_healthy_not_failed(scan_with_integration):
     assert scan.execution_status == Scan.ExecutionStatus.SUCCESS
     assert scan.monitoring_status == Scan.MonitoringStatus.HEALTHY
     assert scan.result_status == Scan.ResultStatus.HEALTHY_TARGET_ABSENT
+    health = SourceHealth.objects.get(user=scan.user, source="github")
+    assert health.status == SourceHealth.Status.HEALTHY
+    assert health.result_count == 0
+    assert health.rate_limit_remaining == 4999
 
 
 @pytest.mark.django_db
@@ -67,6 +72,35 @@ def test_zero_findings_are_healthy_not_failed(scan_with_integration):
     assert scan.execution_status == Scan.ExecutionStatus.SUCCESS
     assert scan.monitoring_status == Scan.MonitoringStatus.HEALTHY
     assert scan.result_status == Scan.ResultStatus.HEALTHY_NO_FINDINGS
+
+
+@pytest.mark.django_db
+def test_gitlab_zero_results_are_healthy():
+    user = User.objects.create_user(username="gitlab-user", password="password")
+    scan = Scan.objects.create(
+        user=user, source="gitlab", type=Scan.ScanTypes.ORG_REPOS, value="acme"
+    )
+    UserIntegration.objects.create(
+        user=user, provider=UserIntegration.Provider.GITLAB,
+        status=UserIntegration.Status.CONNECTED, token_encrypted="token",
+    )
+    adapter = Mock()
+    adapter.health_check.return_value = AdapterHealth(True, None)
+    with (
+        patch.object(UserIntegration, "get_token", return_value="gitlab-token"),
+        patch("scans.tasks.get_source_adapter", return_value=adapter) as registry,
+        patch("scans.tasks.ScanOrchestrator") as orchestrator_class,
+    ):
+        orchestrator_class.return_value.repository_successes = 0
+        orchestrator_class.return_value.repository_failures = 0
+        run_scan_task(scan.pk)
+
+    scan.refresh_from_db()
+    registry.assert_called_once_with("gitlab", token="gitlab-token")
+    assert scan.execution_status == Scan.ExecutionStatus.SUCCESS
+    assert scan.monitoring_status == Scan.MonitoringStatus.HEALTHY
+    assert scan.result_status == Scan.ResultStatus.HEALTHY_TARGET_ABSENT
+    assert SourceHealth.objects.get(user=user, source="gitlab").status == SourceHealth.Status.HEALTHY
 
 
 @pytest.mark.django_db
@@ -107,19 +141,21 @@ def test_all_repository_failures_are_internal_failure(scan_with_integration):
 @pytest.mark.parametrize(
     ("exception", "execution", "monitoring", "result"),
     [
-        (GitHubAuthError("bad token"), "FAILED", "UNKNOWN", "FAILED_AUTH"),
-        (GitHubNetworkError("network down"), "FAILED", "UNKNOWN", "FAILED_NETWORK"),
-        (GitHubRateLimitError("limited"), "DEGRADED", "WARNING", "DEGRADED_RATE_LIMIT"),
-        (GitHubResponseError("bad json"), "FAILED", "UNKNOWN", "FAILED_INTERNAL"),
+        (SourceAuthError("bad token"), "FAILED", "UNKNOWN", "FAILED_AUTH"),
+        (SourceNetworkError("network down"), "FAILED", "UNKNOWN", "FAILED_NETWORK"),
+        (SourceRateLimitError("limited"), "DEGRADED", "WARNING", "DEGRADED_RATE_LIMIT"),
+        (SourceResponseError("bad json"), "FAILED", "UNKNOWN", "FAILED_INTERNAL"),
         (RuntimeError("broken"), "FAILED", "UNKNOWN", "FAILED_INTERNAL"),
     ],
 )
 def test_source_errors_are_classified(
     scan_with_integration, exception, execution, monitoring, result
 ):
+    adapter = Mock()
+    adapter.health_check.return_value = AdapterHealth(True, 4999)
     with (
         patch.object(UserIntegration, "get_token", return_value="github-token"),
-        patch("scans.tasks.validate_github_integration", return_value=(True, "")),
+        patch("scans.tasks.get_source_adapter", return_value=adapter),
         patch("scans.tasks.ScanOrchestrator") as orchestrator_class,
         pytest.raises(type(exception)),
     ):
@@ -130,3 +166,5 @@ def test_source_errors_are_classified(
     assert scan_with_integration.execution_status == execution
     assert scan_with_integration.monitoring_status == monitoring
     assert scan_with_integration.result_status == result
+    health = SourceHealth.objects.get(user=scan_with_integration.user, source="github")
+    assert health.status in {SourceHealth.Status.WARNING, SourceHealth.Status.CRITICAL}

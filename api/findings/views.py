@@ -11,12 +11,21 @@ class FindingView(generics.ListAPIView):
     serializer_class = FindingSerializer
     permission_classes = [IsAuthenticated]
 
-    filterset_fields = ["type", "value", "email", "repository", "scan", "validated", "created_at"]
+    filterset_fields = [
+        "type", "email", "repository", "validated", "lifecycle_status",
+        "severity", "source", "created_at",
+    ]
     search_fields = ["repository", "email", "description", "value", "commit_hash"]
     ordering_fields = ["created_at", "type", "repository", "email"]
 
     def get_queryset(self):
-        return Finding.objects.filter(scan__user=self.request.user)
+        queryset = Finding.objects.filter(
+            occurrences__scan__user=self.request.user
+        ).distinct()
+        scan_id = self.request.query_params.get("scan")
+        if scan_id:
+            queryset = queryset.filter(occurrences__scan_id=scan_id)
+        return queryset
 
 class FindingDetailsView(generics.RetrieveUpdateDestroyAPIView):
     """API view for retrieving and deleting individual findings"""
@@ -25,7 +34,9 @@ class FindingDetailsView(generics.RetrieveUpdateDestroyAPIView):
 
     def get_queryset(self):
         """Returns individual finding belongs to the user"""
-        return Finding.objects.filter(scan__user=self.request.user)
+        return Finding.objects.filter(
+            occurrences__scan__user=self.request.user
+        ).distinct()
 
 class IgnoreFindingTypeView(generics.ListCreateAPIView):
     """API view for the ignored finding types"""

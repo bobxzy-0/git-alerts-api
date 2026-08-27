@@ -24,6 +24,7 @@ export const Layout: React.FC = () => {
                 GitAlerts
               </Link>
               <nav className="flex space-x-6">
+                <Link to="/monitoring-profiles" className="text-sm font-medium text-foreground hover:text-primary transition-colors">Monitoring Profiles</Link>
                 <Link
                   to="/dashboard"
                   className="text-sm font-medium text-foreground hover:text-primary transition-colors"
@@ -41,6 +42,24 @@ export const Layout: React.FC = () => {
                   className="text-sm font-medium text-foreground hover:text-primary transition-colors"
                 >
                   Findings
+                </Link>
+                <Link
+                  to="/monitor-rules"
+                  className="text-sm font-medium text-foreground hover:text-primary transition-colors"
+                >
+                  Monitor Rules
+                </Link>
+                <Link
+                  to="/source-health"
+                  className="text-sm font-medium text-foreground hover:text-primary transition-colors"
+                >
+                  Source Health
+                </Link>
+                <Link
+                  to="/notifications"
+                  className="text-sm font-medium text-foreground hover:text-primary transition-colors"
+                >
+                  Notifications
                 </Link>
                 <Link
                   to="/integrations"

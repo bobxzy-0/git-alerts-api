@@ -2,8 +2,8 @@ from logging import getLogger
 from rest_framework import generics
 from rest_framework.permissions import IsAuthenticated
 from django.shortcuts import get_object_or_404
-from .serializers import ScanSerializer
-from .models import Scan
+from .serializers import MonitorRuleSerializer, MonitoringProfileSerializer, ScanSerializer
+from .models import MonitorRule, MonitoringProfile, Scan
 from findings.serializers import FindingSerializer
 from .tasks import run_scan_task
 
@@ -63,4 +63,40 @@ class ScanFindingsView(generics.ListAPIView):
             pk=self.kwargs["pk"],
             user=self.request.user,
         )
-        return scan.findings.all()
+        return Finding.objects.filter(occurrences__scan=scan).distinct()
+
+
+class MonitorRuleView(generics.ListCreateAPIView):
+    serializer_class = MonitorRuleSerializer
+    permission_classes = [IsAuthenticated]
+    filterset_fields = ["enabled", "source", "scan_type", "interval_minutes"]
+
+    def get_queryset(self):
+        return MonitorRule.objects.filter(user=self.request.user)
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
+
+
+class MonitorRuleDetailsView(generics.RetrieveUpdateDestroyAPIView):
+    serializer_class = MonitorRuleSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return MonitorRule.objects.filter(user=self.request.user)
+
+
+class MonitoringProfileView(generics.ListCreateAPIView):
+    serializer_class = MonitoringProfileSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return MonitoringProfile.objects.filter(user=self.request.user)
+
+
+class MonitoringProfileDetailsView(generics.RetrieveUpdateDestroyAPIView):
+    serializer_class = MonitoringProfileSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return MonitoringProfile.objects.filter(user=self.request.user)

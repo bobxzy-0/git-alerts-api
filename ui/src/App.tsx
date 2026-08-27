@@ -13,6 +13,10 @@ import { ScanDetail } from '@/pages/ScanDetail';
 import { Findings } from '@/pages/Findings';
 import { Integrations } from '@/pages/Integrations';
 import { Settings } from '@/pages/Settings';
+import { MonitorRules } from '@/pages/MonitorRules';
+import { SourceHealth } from '@/pages/SourceHealth';
+import { Notifications } from '@/pages/Notifications';
+import { MonitoringProfiles } from '@/pages/MonitoringProfiles';
 import { LanguageProvider } from '@/i18n/LanguageContext';
 
 // Create a client
@@ -52,6 +56,10 @@ function App() {
               <Route path="/findings" element={<Findings />} />
               <Route path="/integrations" element={<Integrations />} />
               <Route path="/settings" element={<Settings />} />
+              <Route path="/monitor-rules" element={<MonitorRules />} />
+              <Route path="/source-health" element={<SourceHealth />} />
+              <Route path="/notifications" element={<Notifications />} />
+              <Route path="/monitoring-profiles" element={<MonitoringProfiles />} />
             </Route>
 
             {/* Catch all */}

@@ -97,9 +97,15 @@ redis-server
 # Terminal 2: Start Celery worker
 celery -A api worker --loglevel=info
 
-# Terminal 3: Start Django server
+# Terminal 3: Start Celery Beat
+celery -A api beat --loglevel=info
+
+# Terminal 4: Start Django server
 python manage.py runserver
 ```
+
+Docker Compose runs Beat as the `celery-beat` service and persists its local
+schedule state in the `celery_beat_data` volume.
 
 The API will be available at `http://localhost:8000`
 

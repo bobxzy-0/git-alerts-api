@@ -1,0 +1,131 @@
+from datetime import timedelta
+from unittest.mock import patch
+
+import pytest
+from django.contrib.auth.models import User
+from django.utils import timezone
+from rest_framework.test import APIClient
+
+from scans.models import MonitorRule, Scan, SourceType
+from scans.tasks import dispatch_due_monitor_rules, run_monitor_rule_task
+
+
+@pytest.fixture
+def user(db):
+    return User.objects.create_user(username="rule-user", password="test-password")
+
+
+@pytest.fixture
+def due_rule(user):
+    return MonitorRule.objects.create(
+        user=user,
+        name="GitHub organization",
+        source=SourceType.GITHUB,
+        scan_type=Scan.ScanTypes.ORG_REPOS,
+        value="example",
+        interval_minutes=MonitorRule.Intervals.MINUTES_15,
+        next_run_at=timezone.now() - timedelta(minutes=1),
+    )
+
+
+@pytest.mark.django_db
+def test_rule_supports_required_intervals():
+    assert {choice.value for choice in MonitorRule.Intervals} == {
+        15, 30, 60, 120, 360, 720, 1440,
+    }
+
+
+@pytest.mark.django_db
+def test_new_enabled_rule_is_due_immediately(user):
+    before = timezone.now()
+    rule = MonitorRule.objects.create(
+        user=user,
+        name="Immediate",
+        scan_type=Scan.ScanTypes.SEARCH_REPOS,
+        value="company-name",
+    )
+    assert rule.next_run_at >= before
+
+
+@pytest.mark.django_db
+def test_dispatch_claims_same_rule_only_once(due_rule):
+    with patch("scans.tasks.run_monitor_rule_task.delay") as delay:
+        assert dispatch_due_monitor_rules() == 1
+        assert dispatch_due_monitor_rules() == 0
+
+    delay.assert_called_once_with(due_rule.pk)
+    due_rule.refresh_from_db()
+    assert due_rule.is_running is True
+    assert due_rule.locked_at is not None
+
+
+@pytest.mark.django_db
+def test_rule_execution_creates_scan_and_releases_lock(due_rule):
+    MonitorRule.objects.filter(pk=due_rule.pk).update(is_running=True, locked_at=timezone.now())
+    with patch("scans.tasks.run_scan_task") as run_scan:
+        scan_id = run_monitor_rule_task(due_rule.pk)
+
+    scan = Scan.objects.get(pk=scan_id)
+    run_scan.assert_called_once_with(scan.pk)
+    due_rule.refresh_from_db()
+    assert due_rule.is_running is False
+    assert due_rule.locked_at is None
+    assert due_rule.last_scan_id == scan.pk
+    assert due_rule.last_run_at is not None
+    assert due_rule.next_run_at >= due_rule.last_run_at + timedelta(minutes=15)
+
+
+@pytest.mark.django_db
+def test_monitor_rule_api_is_user_scoped(user):
+    other = User.objects.create_user(username="other-user", password="test-password")
+    MonitorRule.objects.create(
+        user=other,
+        name="Other rule",
+        scan_type=Scan.ScanTypes.ORG_REPOS,
+        value="other",
+    )
+    client = APIClient()
+    client.force_authenticate(user)
+    response = client.post(
+        "/monitor-rules/",
+        {
+            "name": "My rule",
+            "source": "github",
+            "scan_type": "org_repos",
+            "value": "example",
+            "interval_minutes": 30,
+            "enabled": True,
+        },
+        format="json",
+    )
+    assert response.status_code == 201
+    assert client.get("/monitor-rules/").json()[0]["name"] == "My rule"
+
+
+@pytest.mark.django_db
+def test_gitlab_source_is_enabled(user):
+    client = APIClient()
+    client.force_authenticate(user)
+    response = client.post(
+        "/monitor-rules/",
+        {
+            "name": "GitLab group",
+            "source": "gitlab",
+            "scan_type": "org_repos",
+            "value": "example",
+            "interval_minutes": 60,
+        },
+        format="json",
+    )
+    assert response.status_code == 201
+
+
+@pytest.mark.django_db
+def test_gitee_source_is_enabled(user):
+    client = APIClient()
+    client.force_authenticate(user)
+    response = client.post("/monitor-rules/", {
+        "name": "Gitee org", "source": "gitee", "scan_type": "org_repos",
+        "value": "example", "interval_minutes": 60,
+    }, format="json")
+    assert response.status_code == 201

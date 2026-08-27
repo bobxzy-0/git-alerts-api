@@ -56,6 +56,7 @@ class TruffleHogClient:
                         "type": finding_data.get("DetectorName"),
                         "description": finding_data.get("DetectorDescription"),
                         "value": finding_data.get("Raw"),
+                        "verified": bool(finding_data.get("Verified")),
                     }
                     all_findings.append(parsed_data)
 
@@ -64,11 +65,11 @@ class TruffleHogClient:
             )
             return all_findings
 
-        except subprocess.TimeoutExpired:
+        except subprocess.TimeoutExpired as exc:
             logger.warning(
                 f"event=trufflehog_scan_timeout repository={repository_url} timeout=600s"
             )
-            return []
+            raise RuntimeError("TruffleHog scan timed out after 600 seconds") from exc
 
         except Exception as e:
             logger.error(

@@ -298,6 +298,15 @@ class GitHubClient:
             )
         return data
 
+    def get_rate_limit(self) -> dict:
+        response = self._request("GET", f"{self.base_url}/rate_limit")
+        data = self._response_json(response)
+        if not isinstance(data, dict):
+            raise GitHubResponseError(
+                f"Expected a rate limit object, got {type(data).__name__}"
+            )
+        return data
+
     def search_code(self, query: str) -> list[dict]:
         """Fetches repositories using GitHub code search for a given query"""
         logger.info(f"event=github_search_code_started query={query}")

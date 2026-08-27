@@ -22,6 +22,7 @@ urlpatterns = [
 
     # Core
     path('', include('core.urls')),
+    path('', include('notifications.urls')),
 
     # Auth
     path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),

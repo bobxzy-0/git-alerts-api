@@ -13,12 +13,20 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY --from=ghcr.io/astral-sh/uv:0.5.11 /uv /uvx /bin/
 
 ARG TRUFFLEHOG_VERSION=3.97.1
+ARG GITLEAKS_VERSION=8.24.2
 RUN curl -fsSL -o /tmp/trufflehog.tar.gz \
         "https://github.com/trufflesecurity/trufflehog/releases/download/v${TRUFFLEHOG_VERSION}/trufflehog_${TRUFFLEHOG_VERSION}_linux_amd64.tar.gz" \
     && tar -xzf /tmp/trufflehog.tar.gz -C /usr/local/bin trufflehog \
     && rm /tmp/trufflehog.tar.gz \
     && chmod +x /usr/local/bin/trufflehog \
     && trufflehog --version
+
+RUN curl -fsSL -o /tmp/gitleaks.tar.gz \
+        "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" \
+    && tar -xzf /tmp/gitleaks.tar.gz -C /usr/local/bin gitleaks \
+    && rm /tmp/gitleaks.tar.gz \
+    && chmod +x /usr/local/bin/gitleaks \
+    && gitleaks version
 
 WORKDIR /app
 

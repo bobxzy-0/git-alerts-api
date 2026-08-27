@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { scansApi } from '@/services/api';
-import type { ScanType } from '@/types';
+import type { ScanType, SourceType } from '@/types';
 
 const SCAN_TYPES: { value: ScanType; label: string; description: string }[] = [
   {
@@ -46,6 +46,7 @@ export const NewScan: React.FC = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [scanType, setScanType] = useState<ScanType>('org_repos');
+  const [source, setSource] = useState<SourceType>('github');
   const [query, setQuery] = useState('');
 
   const createScanMutation = useMutation({
@@ -58,7 +59,7 @@ export const NewScan: React.FC = () => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    createScanMutation.mutate({ type: scanType, value: query });
+    createScanMutation.mutate({ type: scanType, value: query, source });
   };
 
   const selectedType = SCAN_TYPES.find((t) => t.value === scanType);
@@ -68,13 +69,27 @@ export const NewScan: React.FC = () => {
       <div>
         <h1 className="text-3xl font-bold text-foreground">Create New Scan</h1>
         <p className="text-muted-foreground mt-2">
-          Configure a new security scan for GitHub repositories
+          Configure a new security scan for a connected source
         </p>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Scan Type Selection */}
         <div className="bg-card border border-border rounded-lg p-6 space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-2">Source</label>
+            <select value={source} onChange={(e) => {
+              const next = e.target.value as SourceType;
+              setSource(next);
+              if (next !== 'github' && !['org_repos', 'search_repos'].includes(scanType)) setScanType('org_repos');
+              if (next === 'brave') setScanType('search_repos');
+            }} className="w-full px-3 py-2 bg-background border border-input rounded-md">
+              <option value="github">GitHub</option>
+              <option value="gitlab">GitLab</option>
+              <option value="gitee">Gitee</option>
+              <option value="brave">Brave Search</option>
+            </select>
+          </div>
           <div>
             <label className="block text-sm font-medium text-foreground mb-2">
               Scan Type
@@ -85,7 +100,7 @@ export const NewScan: React.FC = () => {
               className="w-full px-3 py-2 bg-background border border-input rounded-md text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
               required
             >
-              {SCAN_TYPES.map((type) => (
+              {SCAN_TYPES.filter((type) => source === 'github' || (source === 'brave' ? type.value === 'search_repos' : ['org_repos', 'search_repos'].includes(type.value))).map((type) => (
                 <option key={type.value} value={type.value}>
                   {type.label}
                 </option>
@@ -125,13 +140,13 @@ export const NewScan: React.FC = () => {
             </p>
             <p className="text-sm text-destructive">
               {(() => {
-                const error = createScanMutation.error as any;
+                const error = createScanMutation.error as { response?: { data?: string | Record<string, unknown> } };
                 if (error?.response?.data) {
                   // Handle validation errors
                   const data = error.response.data;
                   if (typeof data === 'string') return data;
-                  if (data.non_field_errors) return data.non_field_errors[0];
-                  if (data.detail) return data.detail;
+                  if (Array.isArray(data.non_field_errors)) return data.non_field_errors[0] as string;
+                  if (typeof data.detail === 'string') return data.detail;
                   // Return first error message from any field
                   const firstError = Object.values(data)[0];
                   if (Array.isArray(firstError)) return firstError[0];
