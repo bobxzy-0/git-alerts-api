@@ -138,11 +138,7 @@ class ScanOrchestrator:
                         owner = parts[-2]
                         repo_name = parts[-1]
 
-                        full_repo_url = (
-                            f"{self.github_client.base_url}/repos/{owner}/{repo_name}"
-                        )
-                        response = self.github_client._request("GET", full_repo_url)
-                        repo_data = response.json()
+                        repo_data = self.github_client.get_repository(owner, repo_name)
 
                         if self.github_client.is_organization_repo(repo_data):
                             filtered.append(repo)
