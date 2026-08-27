@@ -10,11 +10,12 @@ class ScanSerializer(serializers.ModelSerializer):
         model = Scan
         fields = "__all__"
         read_only_fields = [
-            "user", "status",
+            "user", "execution_status", "monitoring_status", "result_status",
+            "error_code", "error_message",
             "total_repositories", "total_findings",
             "ignored_repositories", "ignored_findings",
             "scanned_repositories",
-            "created_at", "updated_at", "completed_at"
+            "created_at", "updated_at", "started_at", "completed_at"
         ]
     
     def validate(self, attrs):
@@ -37,7 +38,10 @@ class ScanSerializer(serializers.ModelSerializer):
             user=user,
             type=type,
             value=value,
-            status__in=["queued", "in_progress"]
+            execution_status__in=[
+                Scan.ExecutionStatus.QUEUED,
+                Scan.ExecutionStatus.RUNNING,
+            ]
         ).exists()
         
         if is_scan_exists:
