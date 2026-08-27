@@ -17,17 +17,18 @@ export const Dashboard: React.FC = () => {
   const totalScans = scans.length;
   const totalFindings = findings.length;
   const activeScans = scans.filter(
-    (scan) => scan.status === 'in_progress' || scan.status === 'queued'
+    (scan) => scan.execution_status === 'RUNNING' || scan.execution_status === 'QUEUED'
   ).length;
   const recentScans = scans.slice(0, 5);
   const recentFindings = findings.slice(0, 5);
 
   const getStatusBadge = (status: string) => {
     const styles = {
-      queued: 'bg-blue-500/10 text-blue-600',
-      in_progress: 'bg-yellow-500/10 text-yellow-600',
-      completed: 'bg-green-500/10 text-green-600',
-      failed: 'bg-red-500/10 text-red-600',
+      QUEUED: 'bg-blue-500/10 text-blue-600',
+      RUNNING: 'bg-yellow-500/10 text-yellow-600',
+      SUCCESS: 'bg-green-500/10 text-green-600',
+      DEGRADED: 'bg-orange-500/10 text-orange-600',
+      FAILED: 'bg-red-500/10 text-red-600',
     };
     return styles[status as keyof typeof styles] || 'bg-gray-500/10 text-gray-600';
   };
@@ -124,10 +125,10 @@ export const Dashboard: React.FC = () => {
                         </span>
                         <span
                           className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusBadge(
-                            scan.status
+                            scan.execution_status
                           )}`}
                         >
-                          {scan.status.replace('_', ' ').toUpperCase()}
+                          {scan.execution_status}
                         </span>
                       </div>
                       <p className="text-sm text-muted-foreground mt-1">{scan.value}</p>
