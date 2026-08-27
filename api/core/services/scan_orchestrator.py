@@ -21,6 +21,8 @@ class ScanOrchestrator:
         self.skip_recent_days = system_settings.skip_recent_days
         self.verified_only = system_settings.verified_only
         self.org_repos_only = system_settings.org_repos_only
+        self.repository_successes = 0
+        self.repository_failures = 0
 
     def run(self):
         """Main orchestrator entry point"""
@@ -106,6 +108,7 @@ class ScanOrchestrator:
                     repository_url=repo, only_verified=self.verified_only
                 )
             except Exception as e:
+                self.repository_failures += 1
                 history.status = RepoScanHistory.ScanStatus.FAILED
                 history.completed_at = timezone.now()
                 history.save()
@@ -119,6 +122,7 @@ class ScanOrchestrator:
             history.status = RepoScanHistory.ScanStatus.COMPLETED
             history.completed_at = timezone.now()
             history.save()
+            self.repository_successes += 1
             self.save_findings(repo, findings)
 
     def _filter_organization_repos(self, repos: list[dict]) -> list[dict]:
