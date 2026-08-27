@@ -23,6 +23,18 @@ class GitHubAPIError(Exception):
     pass
 
 
+class GitHubNetworkError(GitHubAPIError):
+    """Raised for transport errors and temporary GitHub server failures."""
+
+
+class GitHubResponseError(GitHubAPIError):
+    """Raised when GitHub returns malformed or unexpected response data."""
+
+
+class GitHubNotFoundError(GitHubAPIError):
+    """Raised when a requested GitHub resource does not exist."""
+
+
 class GitHubClient:
     """GitHub Client to fetch repositories for different scans"""
 
@@ -38,6 +50,13 @@ class GitHubClient:
 
     def _sleep_until_reset(self, response):
         """Sleep until GitHub rate limit reset"""
+        retry_after = response.headers.get("Retry-After")
+        if retry_after:
+            wait_seconds = max(0, int(retry_after))
+            logger.warning(f"event=github_rate_limit_hit sleeping_seconds={wait_seconds}")
+            time.sleep(wait_seconds)
+            return
+
         reset_ts = int(response.headers.get("X-RateLimit-Reset", 0))
         now = int(time.time())
         wait_seconds = max(0, reset_ts - now)
@@ -52,6 +71,8 @@ class GitHubClient:
 
         logger.info(f"event=github_request_started method={method} url={url}")
 
+        kwargs.setdefault("timeout", (5, 30))
+
         try:
             response = requests.request(
                 method=method,
@@ -63,49 +84,41 @@ class GitHubClient:
             logger.error(
                 f"event=github_request_error url={url} error={e}", exc_info=True
             )
-            raise GitHubAPIError(f"Network error : {e}") from e
+            raise GitHubNetworkError(f"Network error: {e}") from e
 
         if response.status_code == 401:
             logger.error(f"event=github_authentication_failed url={url}")
             raise GitHubAuthError("Invalid GitHub token")
 
-        if (
+        is_rate_limited = response.status_code == 429 or (
             response.status_code == 403
             and response.headers.get("X-RateLimit-Remaining") == "0"
-            and response.headers.get("X-RateLimit-Resource") != "search"
-        ):
+        )
+        if is_rate_limited:
+            is_search_limit = response.headers.get("X-RateLimit-Resource") == "search"
+            max_retries = SEARCH_API_MAX_RETRIES if is_search_limit else CORE_API_MAX_RETRIES
             logger.warning(
-                f"event=github_core_rate_limit_exceeded url={url} retries={_retries}"
+                f"event=github_rate_limit_exceeded url={url} retries={_retries}"
             )
-
-            if _retries >= CORE_API_MAX_RETRIES:
-                raise GitHubRateLimitError(
-                    "GitHub core API rate limit retry max reached"
-                )
-
+            if _retries >= max_retries:
+                raise GitHubRateLimitError("GitHub API rate limit retry max reached")
             self._sleep_until_reset(response)
             return self._request(method, url, _retries=_retries + 1, **kwargs)
 
-        if (
-            response.status_code == 403
-            and response.headers.get("X-RateLimit-Resource") == "search"
-            and response.headers.get("X-RateLimit-Remaining") == "0"
-        ):
-            logger.warning(
-                f"event=github_search_rate_limit_exceeded url={url} retries={_retries}"
+        # HTTP failures must be classified before any caller attempts JSON parsing.
+        if response.status_code == 403:
+            raise GitHubAuthError("GitHub access forbidden; token permissions may be insufficient")
+        if response.status_code == 404:
+            raise GitHubNotFoundError(f"GitHub resource not found: {url}")
+        if 500 <= response.status_code:
+            raise GitHubNetworkError(
+                f"GitHub service error: HTTP {response.status_code} for {url}"
             )
-
-            if _retries >= SEARCH_API_MAX_RETRIES:
-                raise GitHubRateLimitError(
-                    "GitHub search API rate limit retry max reached"
-                )
-
-            self._sleep_until_reset(response)
-            return self._request(method, url, _retries=_retries + 1, **kwargs)
-
         if not response.ok:
-            logger.error(
-                f"event=github_api_error url={url} status={response.status_code}"
+            detail = (response.text or "").strip().replace("\n", " ")[:300]
+            raise GitHubResponseError(
+                f"GitHub API error: HTTP {response.status_code} for {url}"
+                + (f": {detail}" if detail else "")
             )
 
         logger.info(
@@ -114,6 +127,16 @@ class GitHubClient:
 
         return response
 
+    @staticmethod
+    def _response_json(response):
+        """Decode JSON only after HTTP status validation and normalize errors."""
+        try:
+            return response.json()
+        except (requests.exceptions.JSONDecodeError, ValueError) as exc:
+            raise GitHubResponseError(
+                f"GitHub returned invalid JSON for {response.url or 'unknown URL'}"
+            ) from exc
+
     def _get_all_pages(self, url: str, **kwargs) -> list[dict]:
         """Generic pagintor for GitHub APIs"""
         results = []
@@ -121,11 +144,18 @@ class GitHubClient:
 
         while url:
             response = self._request("GET", url=url, params=params, **kwargs)
-            results.extend(response.json())
+            data = self._response_json(response)
+            if not isinstance(data, list):
+                raise GitHubResponseError(
+                    f"Expected a list from GitHub pagination, got {type(data).__name__}"
+                )
+            results.extend(data)
 
             links = response.links
             if "next" in links:
                 url = links["next"]["url"]
+                # GitHub's Link URL already includes all query and page parameters.
+                params = None
             else:
                 url = None
 
@@ -146,14 +176,23 @@ class GitHubClient:
 
         while url:
             response = self._request("GET", url=url, params=params, **kwargs)
-            data = response.json()
+            data = self._response_json(response)
+            if not isinstance(data, dict):
+                raise GitHubResponseError(
+                    f"Expected an object from GitHub search, got {type(data).__name__}"
+                )
 
             items = data.get("items", [])
+            if not isinstance(items, list):
+                raise GitHubResponseError(
+                    f"Expected search items to be a list, got {type(items).__name__}"
+                )
             results.extend(items)
 
             links = response.links
             if "next" in links:
                 url = links["next"]["url"]
+                params = None
                 # Add delay before next request if specified
                 if delay_seconds > 0:
                     logger.debug(
@@ -183,7 +222,11 @@ class GitHubClient:
         logger.info(f"event=github_get_org_repos_started org={org_name}")
 
         url = f"{self.base_url}/orgs/{org_name}/repos"
-        repositories = self._get_all_pages(url=url)
+        try:
+            repositories = self._get_all_pages(url=url)
+        except GitHubNotFoundError:
+            logger.info(f"event=github_org_not_found org={org_name}")
+            repositories = []
 
         logger.info(
             f"event=github_get_org_repos_completed org={org_name} repo_count={len(repositories)}"
@@ -196,7 +239,11 @@ class GitHubClient:
         logger.info(f"event=github_get_org_members_started org={org_name}")
 
         url = f"{self.base_url}/orgs/{org_name}/members"
-        members = self._get_all_pages(url=url)
+        try:
+            members = self._get_all_pages(url=url)
+        except GitHubNotFoundError:
+            logger.info(f"event=github_org_not_found org={org_name}")
+            members = []
         usernames = [member["login"] for member in members]
 
         logger.info(
@@ -210,7 +257,11 @@ class GitHubClient:
         logger.info(f"event=github_get_user_repos_started username={username}")
 
         url = f"{self.base_url}/users/{username}/repos"
-        repositories = self._get_all_pages(url=url)
+        try:
+            repositories = self._get_all_pages(url=url)
+        except GitHubNotFoundError:
+            logger.info(f"event=github_user_not_found username={username}")
+            repositories = []
 
         logger.info(
             f"event=github_get_user_repos_completed username={username} repo_count={len(repositories)}"
@@ -235,6 +286,17 @@ class GitHubClient:
         )
 
         return all_repositories
+
+    def get_repository(self, owner: str, repository: str) -> dict:
+        """Fetch one repository using the same HTTP and JSON safety rules."""
+        url = f"{self.base_url}/repos/{owner}/{repository}"
+        response = self._request("GET", url)
+        data = self._response_json(response)
+        if not isinstance(data, dict):
+            raise GitHubResponseError(
+                f"Expected a repository object, got {type(data).__name__}"
+            )
+        return data
 
     def search_code(self, query: str) -> list[dict]:
         """Fetches repositories using GitHub code search for a given query"""
