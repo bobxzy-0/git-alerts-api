@@ -33,16 +33,33 @@ export type ScanType =
   | 'search_repos'
   | 'search_users';
 
-export type ScanStatus = 'queued' | 'in_progress' | 'completed' | 'failed';
+export type ExecutionStatus = 'QUEUED' | 'RUNNING' | 'SUCCESS' | 'DEGRADED' | 'FAILED';
+export type MonitoringStatus = 'HEALTHY' | 'WARNING' | 'CRITICAL' | 'UNKNOWN';
+export type ResultStatus =
+  | 'HEALTHY_NO_FINDINGS'
+  | 'HEALTHY_TARGET_ABSENT'
+  | 'FINDINGS_LOW'
+  | 'FINDINGS_MEDIUM'
+  | 'FINDINGS_HIGH'
+  | 'FINDINGS_CRITICAL'
+  | 'DEGRADED_RATE_LIMIT'
+  | 'FAILED_AUTH'
+  | 'FAILED_NETWORK'
+  | 'FAILED_INTERNAL';
 
 export interface Scan {
   id: number;
   user: string; // username, not user id
   type: ScanType;
   value: string;
-  status: ScanStatus;
+  execution_status: ExecutionStatus;
+  monitoring_status: MonitoringStatus;
+  result_status: ResultStatus | null;
+  error_code: string;
+  error_message: string;
   created_at: string;
   updated_at: string;
+  started_at: string | null;
   completed_at: string | null;
   total_repositories: number;
   total_findings: number;
