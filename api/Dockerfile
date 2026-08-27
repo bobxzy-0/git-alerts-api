@@ -12,7 +12,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 COPY --from=ghcr.io/astral-sh/uv:0.5.11 /uv /uvx /bin/
 
-ARG TRUFFLEHOG_VERSION=3.83.7
+ARG TRUFFLEHOG_VERSION=3.97.1
 RUN curl -fsSL -o /tmp/trufflehog.tar.gz \
         "https://github.com/trufflesecurity/trufflehog/releases/download/v${TRUFFLEHOG_VERSION}/trufflehog_${TRUFFLEHOG_VERSION}_linux_amd64.tar.gz" \
     && tar -xzf /tmp/trufflehog.tar.gz -C /usr/local/bin trufflehog \
