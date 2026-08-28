@@ -88,6 +88,8 @@ def test_dispatch_claims_same_rule_only_once(due_rule):
     assert due_rule.is_running is True
     assert due_rule.locked_at is not None
     assert due_rule.last_scan_id == scan.pk
+    assert scan.trigger_type == Scan.TriggerTypes.SCHEDULED
+    assert scan.monitor_rule_id == due_rule.pk
 
 
 @pytest.mark.django_db

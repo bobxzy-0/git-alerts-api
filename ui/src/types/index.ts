@@ -53,6 +53,8 @@ export interface Scan {
   user: string; // username, not user id
   type: ScanType;
   source: SourceType;
+  trigger_type: 'MANUAL' | 'SCHEDULED' | 'DISCOVERY' | 'REPOSITORY_QUEUE';
+  monitor_rule: number | null;
   value: string;
   execution_status: ExecutionStatus;
   monitoring_status: MonitoringStatus;

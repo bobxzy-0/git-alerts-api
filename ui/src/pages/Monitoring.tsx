@@ -7,7 +7,7 @@ const intervals = [15, 30, 60, 120, 360, 720, 1440] as const;
 const split = (value: string) => value.split(',').map(item => item.trim()).filter(Boolean);
 const fmt = (value: string | null) => value ? new Date(value).toLocaleString() : '—';
 
-export const Monitoring: React.FC = () => {
+export const Monitoring: React.FC<{ embedded?: boolean }> = ({ embedded = false }) => {
   const qc = useQueryClient();
   const { data: profiles = [] } = useQuery({ queryKey: ['monitoring-profiles'], queryFn: monitoringProfilesApi.list });
   const { data: rules = [] } = useQuery({ queryKey: ['monitor-rules'], queryFn: monitorRulesApi.list, refetchInterval: 30_000 });
@@ -22,7 +22,7 @@ export const Monitoring: React.FC = () => {
   const rulesByProfile = useMemo(() => new Map(profiles.map(item => [item.id, rules.filter(ruleItem => ruleItem.profile === item.id)])), [profiles, rules]);
 
   return <div className="space-y-6">
-    <div><h1 className="text-3xl font-bold">Monitoring</h1><p className="mt-1 text-sm text-muted-foreground">用一个监控配置维护资产与关键词，系统会自动生成定时扫描规则。</p></div>
+    {!embedded && <div><h1 className="text-3xl font-bold">Monitoring</h1><p className="mt-1 text-sm text-muted-foreground">用一个监控配置维护资产与关键词，系统会自动生成定时扫描规则。</p></div>}
     <section className="rounded-xl border bg-card p-5 shadow-sm">
       <div className="mb-4"><h2 className="text-lg font-semibold">新建监控配置</h2><p className="text-sm text-muted-foreground">逗号分隔多个值；保存后会立即进入第一次调度。</p></div>
       <form className="grid gap-3 md:grid-cols-2" onSubmit={event => { event.preventDefault(); createProfile.mutate({ name: profile.name, enabled: true, company_name: profile.company, domains: split(profile.domains), email_domains: split(profile.emails), brands: split(profile.brands), product_names: split(profile.products), internal_projects: split(profile.projects), internal_domains: split(profile.internalDomains), github_orgs: split(profile.github), gitlab_groups: split(profile.gitlab), custom_keywords: split(profile.keywords), interval_minutes: profile.interval, schedule_kind: profile.scheduleKind, schedule_time: profile.scheduleTime, schedule_weekdays: profile.weekdays, cron_expression: profile.cron }); }}>

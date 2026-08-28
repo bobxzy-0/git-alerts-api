@@ -19,6 +19,7 @@ class ScanView(generics.ListCreateAPIView):
     filterset_fields = [
         "type", "value", "execution_status", "monitoring_status",
         "result_status", "created_at", "completed_at",
+        "trigger_type", "monitor_rule",
     ]
     search_fields = ["value", "type"]
     ordering_fields = [

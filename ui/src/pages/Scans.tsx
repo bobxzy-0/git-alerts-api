@@ -3,7 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { scansApi } from '@/services/api';
 
-export const Scans: React.FC = () => {
+export const Scans: React.FC<{ embedded?: boolean }> = ({ embedded = false }) => {
   const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
   const [selectedScans, setSelectedScans] = useState<Set<number>>(new Set());
@@ -14,6 +14,7 @@ export const Scans: React.FC = () => {
     type: searchParams.get('type') || '',
     value: searchParams.get('value') || '',
     execution_status: searchParams.get('execution_status') || '',
+    trigger_type: searchParams.get('trigger_type') || '',
     created_at: searchParams.get('created_at') || '',
     completed_at: searchParams.get('completed_at') || '',
   });
@@ -23,6 +24,7 @@ export const Scans: React.FC = () => {
     type: searchParams.get('type') || undefined,
     value: searchParams.get('value') || undefined,
     execution_status: searchParams.get('execution_status') || undefined,
+    trigger_type: searchParams.get('trigger_type') || undefined,
     created_at: searchParams.get('created_at') || undefined,
     completed_at: searchParams.get('completed_at') || undefined,
   };
@@ -77,6 +79,7 @@ export const Scans: React.FC = () => {
 
   const handleApplyFilters = () => {
     const newParams = new URLSearchParams();
+    if (embedded) newParams.set('tab', 'history');
     Object.entries(filterForm).forEach(([key, value]) => {
       if (value) {
         newParams.set(key, value);
@@ -91,10 +94,11 @@ export const Scans: React.FC = () => {
       type: '',
       value: '',
       execution_status: '',
+      trigger_type: '',
       created_at: '',
       completed_at: '',
     });
-    setSearchParams(new URLSearchParams());
+    setSearchParams(embedded ? new URLSearchParams({ tab: 'history' }) : new URLSearchParams());
   };
 
   const handleRemoveFilter = (key: string) => {
@@ -138,7 +142,7 @@ export const Scans: React.FC = () => {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Scans</h1>
+          {!embedded && <h1 className="text-3xl font-bold text-foreground">Scans</h1>}
           {selectedScans.size > 0 && (
             <p className="text-sm text-muted-foreground mt-1">
               {selectedScans.size} scan{selectedScans.size > 1 ? 's' : ''} selected
@@ -161,12 +165,12 @@ export const Scans: React.FC = () => {
           >
             {showFilters ? 'Hide Filters' : 'Show Filters'}
           </button>
-          <Link
+          {!embedded && <Link
             to="/scans/new"
             className="px-4 py-2 bg-primary text-primary-foreground rounded-lg font-medium hover:opacity-90 transition-opacity"
           >
             New Scan
-          </Link>
+          </Link>}
         </div>
       </div>
 
@@ -261,6 +265,9 @@ export const Scans: React.FC = () => {
             </div>
 
             {/* Created Date Filter */}
+            <div><label className="block text-sm font-medium text-foreground mb-2">Trigger</label><select value={filterForm.trigger_type} onChange={e => setFilterForm({...filterForm, trigger_type:e.target.value})} className="w-full px-3 py-2 bg-background border border-input rounded-md"><option value="">All Triggers</option><option value="MANUAL">Manual</option><option value="SCHEDULED">Scheduled</option><option value="REPOSITORY_QUEUE">Repository Queue</option><option value="DISCOVERY">Discovery</option></select></div>
+
+            {/* Created Date Filter */}
             <div>
               <label className="block text-sm font-medium text-foreground mb-2">
                 Created Date
@@ -347,6 +354,7 @@ export const Scans: React.FC = () => {
                   <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
                     Query
                   </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Trigger</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
                     Status
                   </th>
@@ -387,6 +395,7 @@ export const Scans: React.FC = () => {
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className="text-sm text-foreground">{scan.value}</span>
                     </td>
+                    <td className="px-6 py-4 whitespace-nowrap"><span className="rounded-full bg-muted px-2 py-1 text-xs">{scan.trigger_type}</span></td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span
                         className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusBadge(

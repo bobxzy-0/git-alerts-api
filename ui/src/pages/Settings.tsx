@@ -1,9 +1,13 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { settingsApi, ignoreRulesApi } from '@/services/api';
+import { useSearchParams } from 'react-router-dom';
+import { ExcludedRepositories } from '@/pages/ExcludedRepositories';
 
 export const Settings: React.FC = () => {
   const queryClient = useQueryClient();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tab = searchParams.get('tab') === 'exclusions' ? 'exclusions' : 'system';
 
   // Fetch system settings
   const { data: settings, isLoading: settingsLoading } = useQuery({
@@ -105,7 +109,12 @@ export const Settings: React.FC = () => {
     <div className="space-y-6">
       <h1 className="text-3xl font-bold text-foreground">Settings</h1>
 
-      <div className="space-y-6">
+      <div className="flex gap-1 border-b">
+        <button onClick={() => setSearchParams({ tab: 'system' })} className={`px-5 py-3 text-sm font-medium ${tab === 'system' ? 'border-b-2 border-primary text-primary' : 'text-muted-foreground'}`}>系统与忽略规则</button>
+        <button onClick={() => setSearchParams({ tab: 'exclusions' })} className={`px-5 py-3 text-sm font-medium ${tab === 'exclusions' ? 'border-b-2 border-primary text-primary' : 'text-muted-foreground'}`}>排除仓库</button>
+      </div>
+
+      {tab === 'exclusions' ? <ExcludedRepositories embedded /> : <div className="space-y-6">
         {/* System Settings */}
         <div className="bg-card border border-border rounded-lg p-6">
           <h2 className="text-xl font-semibold text-foreground mb-4">System Settings</h2>
@@ -282,7 +291,7 @@ export const Settings: React.FC = () => {
             </div>
           )}
         </div>
-      </div>
+      </div>}
     </div>
   );
 };

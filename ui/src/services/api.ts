@@ -65,6 +65,7 @@ export const scansApi = {
     execution_status?: string;
     monitoring_status?: string;
     result_status?: string;
+    trigger_type?: string;
     created_at?: string;
     completed_at?: string;
   }): Promise<Scan[]> => {
@@ -74,6 +75,7 @@ export const scansApi = {
     if (params?.execution_status) queryParams.append('execution_status', params.execution_status);
     if (params?.monitoring_status) queryParams.append('monitoring_status', params.monitoring_status);
     if (params?.result_status) queryParams.append('result_status', params.result_status);
+    if (params?.trigger_type) queryParams.append('trigger_type', params.trigger_type);
     if (params?.created_at) queryParams.append('created_at', params.created_at);
     if (params?.completed_at) queryParams.append('completed_at', params.completed_at);
 

@@ -25,7 +25,7 @@ export const Home: React.FC = () => {
                 Go to Dashboard
               </Link>
               <Link
-                to="/scans"
+                to="/scans?tab=history"
                 className="px-6 py-3 border border-border rounded-lg font-medium hover:bg-accent transition-colors"
               >
                 View Scans

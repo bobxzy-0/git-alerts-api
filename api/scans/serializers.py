@@ -14,6 +14,7 @@ class ScanSerializer(serializers.ModelSerializer):
         fields = "__all__"
         read_only_fields = [
             "user", "execution_status", "monitoring_status", "result_status",
+            "trigger_type", "monitor_rule",
             "error_code", "error_message",
             "total_repositories", "total_findings",
             "ignored_repositories", "ignored_findings",
