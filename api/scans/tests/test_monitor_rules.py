@@ -137,6 +137,31 @@ def test_rule_execution_creates_scan_and_releases_lock(due_rule):
 
 
 @pytest.mark.django_db
+def test_run_now_creates_manual_scan_without_moving_schedule(user, due_rule):
+    client = APIClient()
+    client.force_authenticate(user)
+    original_next_run = due_rule.next_run_at
+    with patch("scans.views.run_monitor_rule_task.delay") as delay:
+        response = client.post(f"/monitor-rules/{due_rule.pk}/run/")
+
+    assert response.status_code == 202
+    scan = Scan.objects.get(pk=response.json()["id"])
+    assert scan.trigger_type == Scan.TriggerTypes.MANUAL
+    assert scan.monitor_rule_id == due_rule.pk
+    delay.assert_called_once_with(due_rule.pk, scan.pk, True)
+    due_rule.refresh_from_db()
+    assert due_rule.next_run_at == original_next_run
+
+
+@pytest.mark.django_db
+def test_run_now_rejects_concurrent_rule(user, due_rule):
+    MonitorRule.objects.filter(pk=due_rule.pk).update(is_running=True)
+    client = APIClient()
+    client.force_authenticate(user)
+    assert client.post(f"/monitor-rules/{due_rule.pk}/run/").status_code == 409
+
+
+@pytest.mark.django_db
 def test_monitor_rule_api_is_user_scoped(user):
     other = User.objects.create_user(username="other-user", password="test-password")
     MonitorRule.objects.create(

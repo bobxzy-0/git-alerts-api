@@ -91,6 +91,8 @@ class DashboardView(APIView):
             .annotate(count=Count("id"))
             .order_by("day")
         )
+        trend_by_day = {row["day"]: row["count"] for row in trend_rows}
+        today = timezone.localdate()
         return Response({
             "overall_health": overall_health,
             "source_health": SourceHealthSerializer(source_health, many=True).data,
@@ -102,7 +104,7 @@ class DashboardView(APIView):
             "recent_scans": ScanSerializer(scans[:5], many=True).data,
             "recent_findings": FindingSerializer(findings.order_by("-last_seen_at")[:5], many=True).data,
             "scan_trend": [
-                {"date": row["day"].isoformat(), "count": row["count"]}
-                for row in trend_rows
+                {"date": day.isoformat(), "count": trend_by_day.get(day, 0)}
+                for day in (today - timedelta(days=offset) for offset in range(13, -1, -1))
             ],
         })

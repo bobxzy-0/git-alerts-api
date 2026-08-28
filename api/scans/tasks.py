@@ -355,7 +355,7 @@ def dispatch_due_monitor_rules():
 
 
 @shared_task
-def run_monitor_rule_task(rule_id, scan_id=None):
+def run_monitor_rule_task(rule_id, scan_id=None, preserve_next_run=False):
     """Execute one claimed rule and always release its concurrency lock."""
     rule = MonitorRule.objects.select_related("user").get(pk=rule_id)
     # A scan_id means Beat already claimed this run while the rule was enabled.
@@ -383,9 +383,11 @@ def run_monitor_rule_task(rule_id, scan_id=None):
         return scan.pk
     finally:
         completed_at = timezone.now()
-        MonitorRule.objects.filter(pk=rule_id).update(
+        updates = dict(
             last_run_at=completed_at,
-            next_run_at=rule.next_occurrence(completed_at),
             is_running=False,
             locked_at=None,
         )
+        if not preserve_next_run:
+            updates["next_run_at"] = rule.next_occurrence(completed_at)
+        MonitorRule.objects.filter(pk=rule_id).update(**updates)

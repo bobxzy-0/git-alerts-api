@@ -24,3 +24,6 @@ def test_dashboard_returns_aggregated_monitoring_data():
         "CRITICAL": 0, "HIGH": 0, "MEDIUM": 0, "LOW": 0, "INFO": 0,
     }
     assert len(data["recent_scans"]) == 1
+    assert len(data["scan_trend"]) == 14
+    assert data["scan_trend"][-1]["count"] == 1
+    assert all("date" in item and "count" in item for item in data["scan_trend"])
