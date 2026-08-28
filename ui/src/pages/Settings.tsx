@@ -30,6 +30,10 @@ export const Settings: React.FC = () => {
   const [skipRecentDays, setSkipRecentDays] = useState<number>(settings?.skip_recent_days || 15);
   const [verifiedOnly, setVerifiedOnly] = useState<boolean>(settings?.verified_only || false);
   const [orgReposOnly, setOrgReposOnly] = useState<boolean>(settings?.org_repos_only || false);
+  const [brandName, setBrandName] = useState('万联源码泄漏监控');
+  const [loginTitle, setLoginTitle] = useState('登录万联源码泄漏监控');
+  const [homeTitle, setHomeTitle] = useState('万联源码泄漏监控');
+  const [homeDescription, setHomeDescription] = useState('持续监控公开代码平台，发现源码与敏感信息泄漏风险');
 
   // State for adding ignore rules
   const [newType, setNewType] = useState('');
@@ -41,6 +45,10 @@ export const Settings: React.FC = () => {
       setSkipRecentDays(settings.skip_recent_days);
       setVerifiedOnly(settings.verified_only);
       setOrgReposOnly(settings.org_repos_only);
+      setBrandName(settings.brand_name);
+      setLoginTitle(settings.login_title);
+      setHomeTitle(settings.home_title);
+      setHomeDescription(settings.home_description);
     }
   }, [settings]);
 
@@ -49,6 +57,7 @@ export const Settings: React.FC = () => {
     mutationFn: settingsApi.update,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['settings'] });
+      queryClient.invalidateQueries({ queryKey: ['branding'] });
     },
   });
 
@@ -88,6 +97,10 @@ export const Settings: React.FC = () => {
       skip_recent_days: skipRecentDays,
       verified_only: verifiedOnly,
       org_repos_only: orgReposOnly,
+      brand_name: brandName,
+      login_title: loginTitle,
+      home_title: homeTitle,
+      home_description: homeDescription,
     });
   };
 
@@ -121,6 +134,15 @@ export const Settings: React.FC = () => {
             <div className="text-muted-foreground">Loading...</div>
           ) : (
             <form onSubmit={handleUpdateSettings} className="space-y-4">
+              <div className="rounded-lg border bg-muted/20 p-4">
+                <h3 className="mb-3 font-semibold">Branding</h3>
+                <div className="grid gap-4 md:grid-cols-2">
+                  <label className="text-sm"><span className="mb-1 block font-medium">Brand Name</span><input required maxLength={120} value={brandName} onChange={e => setBrandName(e.target.value)} className="w-full rounded-md border bg-background px-3 py-2" /></label>
+                  <label className="text-sm"><span className="mb-1 block font-medium">Login Page Title</span><input required maxLength={160} value={loginTitle} onChange={e => setLoginTitle(e.target.value)} className="w-full rounded-md border bg-background px-3 py-2" /></label>
+                  <label className="text-sm"><span className="mb-1 block font-medium">Home Page Title</span><input required maxLength={160} value={homeTitle} onChange={e => setHomeTitle(e.target.value)} className="w-full rounded-md border bg-background px-3 py-2" /></label>
+                  <label className="text-sm"><span className="mb-1 block font-medium">Home Page Description</span><input required maxLength={500} value={homeDescription} onChange={e => setHomeDescription(e.target.value)} className="w-full rounded-md border bg-background px-3 py-2" /></label>
+                </div>
+              </div>
               <div>
                 <label className="block text-sm font-medium text-foreground mb-2">
                   Skip Recent Days

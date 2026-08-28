@@ -13,6 +13,7 @@ import type {
   UserIntegration,
   CreateIntegrationRequest,
   SystemSettings,
+  Branding,
   UpdateSystemSettingsRequest,
   DashboardSummary,
   MonitorRule,
@@ -226,4 +227,8 @@ export const settingsApi = {
     const response = await apiClient.patch<SystemSettings>('/settings/', data);
     return response.data;
   },
+};
+
+export const brandingApi = {
+  get: async (): Promise<Branding> => (await apiClient.get<Branding>('/branding/')).data,
 };

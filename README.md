@@ -1,10 +1,10 @@
-# GitAlerts
+# 万联源码泄漏监控
 
 A comprehensive platform for automated security scanning of GitHub repositories to detect exposed secrets and sensitive information. This project extends the original [git-alerts](https://github.com/boringtools/git-alerts) CLI tool with a web-based platform.
 
 ## Overview
 
-GitAlerts provides a complete solution for monitoring GitHub repositories for security vulnerabilities:
+万联源码泄漏监控 provides a complete solution for monitoring source repositories for security vulnerabilities:
 
 - **Automated Scanning** - Detect exposed secrets using TruffleHog
 - **Multiple Discovery Methods** - Scan organization repos, user repos, and GitHub search results

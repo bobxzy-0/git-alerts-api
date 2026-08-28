@@ -152,6 +152,10 @@ export interface CreateIntegrationRequest {
 
 // System Settings Types
 export interface SystemSettings {
+  brand_name: string;
+  login_title: string;
+  home_title: string;
+  home_description: string;
   id: number;
   skip_recent_days: number;
   verified_only: boolean;
@@ -160,10 +164,16 @@ export interface SystemSettings {
 }
 
 export interface UpdateSystemSettingsRequest {
+  brand_name?: string;
+  login_title?: string;
+  home_title?: string;
+  home_description?: string;
   skip_recent_days?: number;
   verified_only?: boolean;
   org_repos_only?: boolean;
 }
+
+export type Branding = Pick<SystemSettings, 'brand_name' | 'login_title' | 'home_title' | 'home_description'>;
 
 export interface SourceHealth {
   id: number; source: string; status: MonitoringStatus;

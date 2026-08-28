@@ -8,8 +8,18 @@ from .similarity import build_fingerprint, minhash_similarity, simhash_similarit
 class SystemSettingsSerializer(serializers.ModelSerializer):
     class Meta:
         model = SystemSettings
-        fields = ["skip_recent_days", "verified_only", "org_repos_only", "updated_at"]
+        fields = [
+            "brand_name", "login_title", "home_title", "home_description",
+            "skip_recent_days", "verified_only", "org_repos_only", "updated_at",
+        ]
         read_only_fields = ["updated_at"]
+
+
+class BrandingSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = SystemSettings
+        fields = ["brand_name", "login_title", "home_title", "home_description"]
+        read_only_fields = fields
 
 
 class SourceHealthSerializer(serializers.ModelSerializer):
