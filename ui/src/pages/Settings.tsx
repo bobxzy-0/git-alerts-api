@@ -107,8 +107,6 @@ export const Settings: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-3xl font-bold text-foreground">Settings</h1>
-
       <div className="flex gap-1 border-b">
         <button onClick={() => setSearchParams({ tab: 'system' })} className={`px-5 py-3 text-sm font-medium ${tab === 'system' ? 'border-b-2 border-primary text-primary' : 'text-muted-foreground'}`}>系统与忽略规则</button>
         <button onClick={() => setSearchParams({ tab: 'exclusions' })} className={`px-5 py-3 text-sm font-medium ${tab === 'exclusions' ? 'border-b-2 border-primary text-primary' : 'text-muted-foreground'}`}>排除仓库</button>
