@@ -44,6 +44,9 @@ class UserIntegrationValidateView(APIView):
                 status=status.HTTP_404_NOT_FOUND
             )
 
+        integration.status = UserIntegration.Status.PENDING
+        integration.error_message = ""
+        integration.save(update_fields=["status", "error_message", "updated_at"])
         # Trigger validation task
         run_validation_task.delay(integration.id)
 
@@ -60,6 +63,5 @@ class UserIntegrationValidateView(APIView):
             },
             status=status.HTTP_202_ACCEPTED
         )
-
 
 

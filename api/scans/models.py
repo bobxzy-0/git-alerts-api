@@ -10,7 +10,7 @@ class SourceType(models.TextChoices):
     GITEE = "gitee", "Gitee"
     BITBUCKET = "bitbucket", "Bitbucket"
     CODEBERG = "codeberg", "Codeberg"
-    BRAVE = "brave", "Brave Search"
+    YOU = "you", "You.com Search"
 
 class Scan(models.Model):
     """Scan model for user initiated scans"""

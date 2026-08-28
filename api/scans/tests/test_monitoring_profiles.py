@@ -19,7 +19,7 @@ def test_profile_generates_platform_and_search_rules():
     profile = MonitoringProfile.objects.get(user=user)
     rules = profile.rules.order_by("source", "value")
     assert rules.count() == 5
-    assert set(rules.values_list("source", flat=True)) == {"github", "gitlab", "brave"}
+    assert set(rules.values_list("source", flat=True)) == {"github", "gitlab", "you"}
     assert all(rules.values_list("auto_generated", flat=True))
 
 

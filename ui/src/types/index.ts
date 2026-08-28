@@ -32,7 +32,7 @@ export type ScanType =
   | 'search_issues'
   | 'search_repos'
   | 'search_users';
-export type SourceType = 'github' | 'gitlab' | 'gitee' | 'bitbucket' | 'codeberg' | 'brave';
+export type SourceType = 'github' | 'gitlab' | 'gitee' | 'bitbucket' | 'codeberg' | 'you';
 
 export type ExecutionStatus = 'QUEUED' | 'RUNNING' | 'SUCCESS' | 'DEGRADED' | 'FAILED';
 export type MonitoringStatus = 'HEALTHY' | 'WARNING' | 'CRITICAL' | 'UNKNOWN';
@@ -128,7 +128,7 @@ export interface CreateIgnoreDomainRequest {
 }
 
 // Integration Types
-export type IntegrationType = 'github' | 'gitlab' | 'gitee' | 'brave' | 'slack';
+export type IntegrationType = 'github' | 'gitlab' | 'gitee' | 'you' | 'slack';
 export type IntegrationStatus = 'connected' | 'disconnected' | 'pending' | 'failed';
 
 export interface UserIntegration {
@@ -146,7 +146,7 @@ export interface UserIntegration {
 
 export interface CreateIntegrationRequest {
   provider: IntegrationType;
-  token: string;
+  token?: string;
   proxy_url?: string;
 }
 
@@ -193,6 +193,12 @@ export interface DashboardSummary {
 export interface NotificationChannel {
   id: number; name: string; channel_type: 'email' | 'webhook'; target: string; enabled: boolean;
   created_at: string; updated_at: string;
+}
+
+export interface EmailConfiguration {
+  id: number; enabled: boolean; host: string; port: number; username: string;
+  from_email: string; use_tls: boolean; use_ssl: boolean; password_configured: boolean;
+  password?: string;
 }
 
 export interface MonitoringProfile {

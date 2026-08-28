@@ -24,7 +24,7 @@ class ScanSerializer(serializers.ModelSerializer):
         ]
 
     def validate_source(self, value):
-        if value not in {SourceType.GITHUB, SourceType.GITLAB, SourceType.GITEE, SourceType.BRAVE}:
+        if value not in {SourceType.GITHUB, SourceType.GITLAB, SourceType.GITEE, SourceType.YOU}:
             raise serializers.ValidationError("This source adapter is not enabled yet.")
         return value
     
@@ -36,8 +36,8 @@ class ScanSerializer(serializers.ModelSerializer):
 
         source = attrs.get("source", SourceType.GITHUB)
         scan_type = attrs.get("type")
-        if source == SourceType.BRAVE and scan_type != Scan.ScanTypes.SEARCH_REPOS:
-            raise serializers.ValidationError("Brave Search supports search_repos rules only.")
+        if source == SourceType.YOU and scan_type != Scan.ScanTypes.SEARCH_REPOS:
+            raise serializers.ValidationError("Search engine sources support search_repos rules only.")
         integration = UserIntegration.objects.filter(
             user=user,
             provider=source,
@@ -78,7 +78,7 @@ class MonitorRuleSerializer(serializers.ModelSerializer):
         ]
 
     def validate_source(self, value):
-        if value not in {SourceType.GITHUB, SourceType.GITLAB, SourceType.GITEE, SourceType.BRAVE}:
+        if value not in {SourceType.GITHUB, SourceType.GITLAB, SourceType.GITEE, SourceType.YOU}:
             raise serializers.ValidationError(
                 "This source is reserved for a later adapter phase and is not enabled yet."
             )
@@ -87,8 +87,8 @@ class MonitorRuleSerializer(serializers.ModelSerializer):
     def validate(self, attrs):
         source = attrs.get("source", getattr(self.instance, "source", SourceType.GITHUB))
         scan_type = attrs.get("scan_type", getattr(self.instance, "scan_type", None))
-        if source == SourceType.BRAVE and scan_type != Scan.ScanTypes.SEARCH_REPOS:
-            raise serializers.ValidationError("Brave Search supports search_repos rules only.")
+        if source == SourceType.YOU and scan_type != Scan.ScanTypes.SEARCH_REPOS:
+            raise serializers.ValidationError("Search engine sources support search_repos rules only.")
         self._validate_schedule(attrs)
         return attrs
 

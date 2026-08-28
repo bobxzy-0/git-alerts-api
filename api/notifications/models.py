@@ -2,6 +2,28 @@ from django.contrib.auth.models import User
 from django.db import models
 
 from findings.models import Finding, FindingOccurrence
+from core.crypto import encypt, decrypt
+
+
+class EmailConfiguration(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="email_configuration")
+    enabled = models.BooleanField(default=False)
+    host = models.CharField(max_length=255, blank=True, default="")
+    port = models.PositiveIntegerField(default=587)
+    username = models.CharField(max_length=255, blank=True, default="")
+    password_encrypted = models.TextField(blank=True, default="")
+    from_email = models.EmailField(blank=True, default="")
+    use_tls = models.BooleanField(default=True)
+    use_ssl = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def set_password(self, password: str) -> None:
+        if password:
+            self.password_encrypted = encypt(password)
+
+    def get_password(self) -> str:
+        return decrypt(self.password_encrypted) if self.password_encrypted else ""
 
 
 class NotificationChannel(models.Model):

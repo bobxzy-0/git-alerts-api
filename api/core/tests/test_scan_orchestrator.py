@@ -33,9 +33,9 @@ def test_orchestrator_counts_repository_failures_without_aborting_scan():
 
 
 @pytest.mark.django_db
-def test_brave_discovery_enqueues_repositories_without_scanning_search_results():
-    user = User.objects.create_user(username="brave-user")
-    scan = Scan.objects.create(user=user, source="brave", type=Scan.ScanTypes.SEARCH_REPOS, value="acme")
+def test_you_discovery_enqueues_repositories_without_scanning_search_results():
+    user = User.objects.create_user(username="you-user")
+    scan = Scan.objects.create(user=user, source="you", type=Scan.ScanTypes.SEARCH_REPOS, value="acme")
     source_adapter = Mock()
     source_adapter.search.return_value = [
         RepositoryTarget("github", "https://github.com/acme/api", "acme", "api")

@@ -18,6 +18,7 @@ import type {
   MonitorRule,
   SourceHealth,
   NotificationChannel,
+  EmailConfiguration,
   MonitoringProfile,
   ScanRepository,
   ExcludedRepository,
@@ -51,6 +52,11 @@ export const notificationChannelsApi = {
   create: async (data: Pick<NotificationChannel,'name'|'channel_type'|'target'|'enabled'>): Promise<NotificationChannel> => (await apiClient.post<NotificationChannel>('/notifications/channels/',data)).data,
   update: async (id:number, data:Partial<NotificationChannel>): Promise<NotificationChannel> => (await apiClient.patch<NotificationChannel>(`/notifications/channels/${id}/`,data)).data,
   delete: async (id:number): Promise<void> => { await apiClient.delete(`/notifications/channels/${id}/`); },
+};
+
+export const emailConfigurationApi = {
+  get: async (): Promise<EmailConfiguration> => (await apiClient.get<EmailConfiguration>('/notifications/email-settings/')).data,
+  update: async (data: Partial<EmailConfiguration>): Promise<EmailConfiguration> => (await apiClient.patch<EmailConfiguration>('/notifications/email-settings/', data)).data,
 };
 
 export const monitoringProfilesApi = {

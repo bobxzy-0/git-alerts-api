@@ -117,12 +117,12 @@ export const NewScan: React.FC = () => {
               const next = e.target.value as SourceType;
               setSource(next);
               if (next !== 'github' && !['org_repos', 'search_repos'].includes(scanType)) setScanType('org_repos');
-              if (next === 'brave') setScanType('search_repos');
+              if (next === 'you') setScanType('search_repos');
             }} className="w-full px-3 py-2 bg-background border border-input rounded-md">
               <option value="github">GitHub</option>
               <option value="gitlab">GitLab</option>
               <option value="gitee">Gitee</option>
-              <option value="brave">Brave Search</option>
+              <option value="you">You.com Search</option>
             </select>
           </div>
           <div>
@@ -135,7 +135,7 @@ export const NewScan: React.FC = () => {
               className="w-full px-3 py-2 bg-background border border-input rounded-md text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
               required
             >
-              {SCAN_TYPES.filter((type) => source === 'github' || (source === 'brave' ? type.value === 'search_repos' : ['org_repos', 'search_repos'].includes(type.value))).map((type) => (
+              {SCAN_TYPES.filter((type) => source === 'github' || (source === 'you' ? type.value === 'search_repos' : ['org_repos', 'search_repos'].includes(type.value))).map((type) => (
                 <option key={type.value} value={type.value}>
                   {type.label}
                 </option>
