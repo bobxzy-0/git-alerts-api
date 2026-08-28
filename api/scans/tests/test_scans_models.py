@@ -14,3 +14,4 @@ def test_new_scan_has_queued_unknown_status():
     assert scan.result_status is None
     assert scan.error_code == ""
     assert scan.error_message == ""
+    assert scan.trigger_type == Scan.TriggerTypes.MANUAL
