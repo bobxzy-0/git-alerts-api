@@ -14,15 +14,18 @@ from core.sources.base import (
 class GitLabClient:
     """Small GitLab REST v4 client with strict HTTP and payload handling."""
 
-    def __init__(self, token: str, base_url: str = "https://gitlab.com/api/v4"):
+    def __init__(self, token: str, base_url: str = "https://gitlab.com/api/v4", proxy_url: str = ""):
         self.token = token
         self.base_url = base_url.rstrip("/")
+        self.proxies = {"http": proxy_url, "https": proxy_url} if proxy_url else None
 
     def _headers(self):
         return {"PRIVATE-TOKEN": self.token, "Accept": "application/json"}
 
     def _request(self, method: str, url: str, **kwargs):
         kwargs.setdefault("timeout", (5, 30))
+        if self.proxies:
+            kwargs.setdefault("proxies", self.proxies)
         try:
             response = requests.request(method, url, headers=self._headers(), **kwargs)
         except requests.RequestException as exc:

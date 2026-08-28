@@ -70,7 +70,7 @@ def send_alert_delivery(delivery_id):
     try:
         if delivery.channel.channel_type == NotificationChannel.Types.EMAIL:
             send_mail(
-                f"[{finding.severity}] GitAlerts finding: {finding.type}",
+                f"[{finding.severity}] SourceWatch finding: {finding.type}",
                 "\n".join(f"{key}: {value}" for key, value in payload.items()),
                 settings.DEFAULT_FROM_EMAIL,
                 [delivery.channel.target],

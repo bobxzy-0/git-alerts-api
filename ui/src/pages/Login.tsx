@@ -34,7 +34,7 @@ export const Login: React.FC = () => {
     <div className="flex items-center justify-center min-h-[calc(100vh-200px)]">
       <div className="w-full max-w-md space-y-8">
         <div className="text-center">
-          <h2 className="text-3xl font-bold text-primary">登录代码哨兵</h2>
+          <h2 className="text-3xl font-bold text-primary">登录源码泄漏监控</h2>
           <p className="mt-2 text-sm text-muted-foreground">
             Enter your credentials to access your account
           </p>

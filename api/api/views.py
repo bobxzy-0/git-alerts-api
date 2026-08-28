@@ -7,7 +7,7 @@ class HomeView(APIView):
     def get(self, request):
         """Handle GET request and return welcome message"""
         return Response({
-            "name": "GitAlerts API",
+            "name": "SourceWatch API",
             "version": "1.0.0",
             "status" : "healthy",
         })

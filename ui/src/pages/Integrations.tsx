@@ -4,6 +4,8 @@ import { integrationsApi } from '@/services/api';
 import type { IntegrationType, UserIntegration } from '@/types';
 
 type SourceProvider = Extract<IntegrationType, 'github' | 'gitlab' | 'gitee' | 'brave'>;
+type ProxyMode = 'keep' | 'none' | 'configure';
+type ProxyScheme = 'http' | 'https' | 'socks5';
 const CONFIG = {
   github: { name: 'GitHub', placeholder: 'ghp_xxxxxxxxxxxxxxxxxxxx', help: 'Use a token with repository and organization read access.' },
   gitlab: { name: 'GitLab', placeholder: 'glpat-xxxxxxxxxxxxxxxxxxxx', help: 'Use a token with read_api access.' },
@@ -21,17 +23,24 @@ export const Integrations: React.FC = () => {
     {isLoading ? <p>Loading...</p> : (Object.keys(CONFIG) as SourceProvider[]).map(provider => <IntegrationCard
       key={provider} provider={provider} integration={data.find(item => item.provider === provider)}
       busy={create.isPending || validate.isPending}
-      onSave={token => create.mutate({ provider, token })} onValidate={id => validate.mutate(id)}
+      onSave={(token, proxyUrl) => create.mutate({ provider, token, ...(proxyUrl === undefined ? {} : { proxy_url: proxyUrl }) })}
+      onValidate={id => validate.mutate(id)}
     />)}
   </div>;
 };
 
 function IntegrationCard({ provider, integration, busy, onSave, onValidate }: {
   provider: SourceProvider; integration?: UserIntegration; busy: boolean;
-  onSave: (token: string) => void; onValidate: (id: number) => void;
+  onSave: (token: string, proxyUrl?: string) => void; onValidate: (id: number) => void;
 }) {
   const [token, setToken] = useState('');
   const [editing, setEditing] = useState(!integration);
+  const [proxyMode, setProxyMode] = useState<ProxyMode>(integration?.proxy_configured ? 'keep' : 'none');
+  const [proxyScheme, setProxyScheme] = useState<ProxyScheme>('http');
+  const [proxyHost, setProxyHost] = useState('');
+  const [proxyPort, setProxyPort] = useState('');
+  const [proxyUsername, setProxyUsername] = useState('');
+  const [proxyPassword, setProxyPassword] = useState('');
   const config = CONFIG[provider];
   const connected = integration?.status === 'connected';
   return <section className="bg-card border rounded-lg p-6 space-y-4">
@@ -41,10 +50,35 @@ function IntegrationCard({ provider, integration, busy, onSave, onValidate }: {
     {integration?.error_message && <p className="p-3 bg-destructive/10 text-destructive rounded">{integration.error_message}</p>}
     {integration && !editing ? <div className="space-y-3">
       <p className="text-sm text-muted-foreground">Last validated: {integration.last_validated_at ? new Date(integration.last_validated_at).toLocaleString() : 'Never'}</p>
-      <div className="flex gap-2"><button disabled={busy} onClick={() => onValidate(integration.id)} className="px-4 py-2 bg-primary text-primary-foreground rounded">Test Connection</button><button onClick={() => setEditing(true)} className="px-4 py-2 border rounded">Update Token</button></div>
-    </div> : <form className="space-y-3" onSubmit={event => { event.preventDefault(); onSave(token.trim()); setToken(''); setEditing(false); }}>
+      <p className="text-sm">Proxy: {integration.proxy_configured ? <span className="font-medium">{integration.proxy_scheme.toUpperCase()} configured · credentials encrypted</span> : <span className="text-muted-foreground">Direct connection</span>}</p>
+      <div className="flex gap-2"><button disabled={busy} onClick={() => onValidate(integration.id)} className="px-4 py-2 bg-primary text-primary-foreground rounded">Test Connection</button><button onClick={() => setEditing(true)} className="px-4 py-2 border rounded">Update Connection</button></div>
+    </div> : <form className="space-y-4" onSubmit={event => {
+      event.preventDefault();
+      let proxyUrl: string | undefined;
+      if (proxyMode === 'none') proxyUrl = '';
+      if (proxyMode === 'configure') {
+        const auth = proxyUsername ? `${encodeURIComponent(proxyUsername)}${proxyPassword ? `:${encodeURIComponent(proxyPassword)}` : ''}@` : '';
+        proxyUrl = `${proxyScheme}://${auth}${proxyHost.trim()}:${proxyPort}`;
+      }
+      onSave(token.trim(), proxyUrl); setToken(''); setEditing(false);
+    }}>
       <input type="password" required minLength={10} value={token} onChange={event => setToken(event.target.value)} placeholder={config.placeholder} className="w-full px-3 py-2 border rounded bg-background" />
-      <div className="flex gap-2"><button disabled={busy} className="px-4 py-2 bg-primary text-primary-foreground rounded">Save Token</button>{integration && <button type="button" onClick={() => setEditing(false)} className="px-4 py-2 border rounded">Cancel</button>}</div>
+      <div className="rounded-lg border bg-muted/20 p-4 space-y-3">
+        <div><h3 className="font-medium">Source proxy</h3><p className="text-xs text-muted-foreground">Used by this source's API requests and repository scans. HTTP, HTTPS and SOCKS5 are supported.</p></div>
+        <select value={proxyMode} onChange={event => setProxyMode(event.target.value as ProxyMode)} className="w-full px-3 py-2 border rounded bg-background">
+          {integration?.proxy_configured && <option value="keep">Keep current encrypted proxy</option>}
+          <option value="none">Connect directly (no proxy)</option>
+          <option value="configure">Configure or replace proxy</option>
+        </select>
+        {proxyMode === 'configure' && <div className="grid gap-3 sm:grid-cols-6">
+          <select value={proxyScheme} onChange={event => setProxyScheme(event.target.value as ProxyScheme)} className="sm:col-span-2 px-3 py-2 border rounded bg-background"><option value="http">HTTP</option><option value="https">HTTPS</option><option value="socks5">SOCKS5</option></select>
+          <input required value={proxyHost} onChange={event => setProxyHost(event.target.value)} placeholder="Proxy host" className="sm:col-span-3 px-3 py-2 border rounded bg-background" />
+          <input required type="number" min="1" max="65535" value={proxyPort} onChange={event => setProxyPort(event.target.value)} placeholder="Port" className="px-3 py-2 border rounded bg-background" />
+          <input value={proxyUsername} onChange={event => setProxyUsername(event.target.value)} placeholder="Username (optional)" className="sm:col-span-3 px-3 py-2 border rounded bg-background" />
+          <input type="password" value={proxyPassword} onChange={event => setProxyPassword(event.target.value)} placeholder="Password (optional)" className="sm:col-span-3 px-3 py-2 border rounded bg-background" />
+        </div>}
+      </div>
+      <div className="flex gap-2"><button disabled={busy} className="px-4 py-2 bg-primary text-primary-foreground rounded">Save Connection</button>{integration && <button type="button" onClick={() => setEditing(false)} className="px-4 py-2 border rounded">Cancel</button>}</div>
     </form>}
   </section>;
 }

@@ -8,7 +8,7 @@ export const Home: React.FC = () => {
   return (
     <div className="flex flex-col items-center justify-center min-h-[calc(100vh-200px)]">
       <div className="text-center space-y-6 max-w-3xl">
-        <h1 className="text-5xl font-bold text-primary">代码哨兵</h1>
+        <h1 className="text-5xl font-bold text-primary">源码泄漏监控</h1>
         <p className="text-xl text-muted-foreground">
           Automated security scanning for GitHub repositories
         </p>

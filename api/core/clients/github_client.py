@@ -38,9 +38,10 @@ class GitHubNotFoundError(GitHubAPIError):
 class GitHubClient:
     """GitHub Client to fetch repositories for different scans"""
 
-    def __init__(self, token: str):
+    def __init__(self, token: str, proxy_url: str = ""):
         self.token = token
         self.base_url = "https://api.github.com"
+        self.proxies = {"http": proxy_url, "https": proxy_url} if proxy_url else None
 
     def _headers(self) -> dict:
         return {
@@ -72,6 +73,8 @@ class GitHubClient:
         logger.info(f"event=github_request_started method={method} url={url}")
 
         kwargs.setdefault("timeout", (5, 30))
+        if self.proxies:
+            kwargs.setdefault("proxies", self.proxies)
 
         try:
             response = requests.request(

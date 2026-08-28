@@ -23,6 +23,7 @@ class UserIntegration(models.Model):
     status = models.CharField(max_length=255, choices=Status.choices, default=Status.DISCONNECTED)
 
     token_encrypted = models.TextField()
+    proxy_url_encrypted = models.TextField(blank=True, default="")
 
     # Token validation tracking
     last_validated_at = models.DateTimeField(null=True, blank=True, help_text="Last time the token was validated")
@@ -36,6 +37,12 @@ class UserIntegration(models.Model):
     
     def get_token(self) -> str:
         return decrypt(self.token_encrypted)
+
+    def set_proxy_url(self, proxy_url: str) -> None:
+        self.proxy_url_encrypted = encypt(proxy_url) if proxy_url else ""
+
+    def get_proxy_url(self) -> str:
+        return decrypt(self.proxy_url_encrypted) if self.proxy_url_encrypted else ""
     
     def __str__(self):
         return f"{self.user.username} - {self.provider} - {self.status}"
