@@ -1,47 +1,66 @@
-import React, { useMemo, useState } from 'react';
+import React from 'react';
+import { Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { monitorRulesApi, monitoringProfilesApi } from '@/services/api';
-import type { MonitorRule, ScanType, SourceType } from '@/types';
+import { monitorRulesApi } from '@/services/api';
+import type { MonitorRule } from '@/types';
 
-const intervals = [15, 30, 60, 120, 360, 720, 1440] as const;
-const split = (value: string) => value.split(',').map(item => item.trim()).filter(Boolean);
 const fmt = (value: string | null) => value ? new Date(value).toLocaleString() : '—';
+const weekdays = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
+
+function scheduleLabel(rule: MonitorRule) {
+  if (rule.schedule_kind === 'CRON') return `Cron · ${rule.cron_expression}`;
+  if (rule.schedule_kind === 'DAILY') return `每天 ${rule.schedule_time.slice(0, 5)}`;
+  if (rule.schedule_kind === 'WEEKLY') {
+    return `${rule.schedule_weekdays.map(day => weekdays[day]).join('、')} ${rule.schedule_time.slice(0, 5)}`;
+  }
+  return rule.interval_minutes < 60
+    ? `每 ${rule.interval_minutes} 分钟`
+    : `每 ${rule.interval_minutes / 60} 小时`;
+}
 
 export const Monitoring: React.FC<{ embedded?: boolean }> = ({ embedded = false }) => {
   const qc = useQueryClient();
-  const { data: profiles = [] } = useQuery({ queryKey: ['monitoring-profiles'], queryFn: monitoringProfilesApi.list });
-  const { data: rules = [] } = useQuery({ queryKey: ['monitor-rules'], queryFn: monitorRulesApi.list, refetchInterval: 30_000 });
-  const [advanced, setAdvanced] = useState(false);
-  const [profile, setProfile] = useState({ name: '', company: '', domains: '', emails: '', brands: '', products: '', projects: '', internalDomains: '', github: '', gitlab: '', keywords: '', interval: 60 as MonitorRule['interval_minutes'], scheduleKind: 'INTERVAL' as MonitorRule['schedule_kind'], scheduleTime: '09:00', weekdays: [0] as number[], cron: '0 9 * * *' });
-  const [rule, setRule] = useState({ name: '', value: '', source: 'github' as SourceType, scan_type: 'search_repos' as ScanType, interval_minutes: 60 as MonitorRule['interval_minutes'], schedule_kind: 'INTERVAL' as MonitorRule['schedule_kind'], schedule_time: '09:00', schedule_weekdays: [0] as number[], cron_expression: '0 9 * * *' });
-  const refresh = () => { qc.invalidateQueries({ queryKey: ['monitoring-profiles'] }); qc.invalidateQueries({ queryKey: ['monitor-rules'] }); };
-  const createProfile = useMutation({ mutationFn: monitoringProfilesApi.create, onSuccess: () => { refresh(); setProfile({ ...profile, name: '', company: '', domains: '', emails: '', brands: '', products: '', projects: '', internalDomains: '', github: '', gitlab: '', keywords: '' }); } });
-  const deleteProfile = useMutation({ mutationFn: monitoringProfilesApi.delete, onSuccess: refresh });
-  const createRule = useMutation({ mutationFn: monitorRulesApi.create, onSuccess: () => { refresh(); setRule({ ...rule, name: '', value: '' }); } });
-  const deleteRule = useMutation({ mutationFn: monitorRulesApi.delete, onSuccess: refresh });
-  const runNow = useMutation({ mutationFn: monitorRulesApi.runNow, onSuccess: () => { refresh(); qc.invalidateQueries({ queryKey: ['scans'] }); } });
-  const rulesByProfile = useMemo(() => new Map(profiles.map(item => [item.id, rules.filter(ruleItem => ruleItem.profile === item.id)])), [profiles, rules]);
+  const { data: rules = [], isLoading, error } = useQuery({
+    queryKey: ['monitor-rules'],
+    queryFn: monitorRulesApi.list,
+    refetchInterval: 30_000,
+  });
+  const scheduledRules = rules.filter(rule => rule.profile === null);
+  const refresh = () => qc.invalidateQueries({ queryKey: ['monitor-rules'] });
+  const updateRule = useMutation({
+    mutationFn: ({ id, enabled }: { id: number; enabled: boolean }) => monitorRulesApi.update(id, { enabled }),
+    onSuccess: refresh,
+  });
+  const deleteRule = useMutation({
+    mutationFn: monitorRulesApi.delete,
+    onSuccess: () => { refresh(); qc.invalidateQueries({ queryKey: ['monitoring-profiles'] }); },
+  });
+  const runNow = useMutation({
+    mutationFn: monitorRulesApi.runNow,
+    onSuccess: () => { refresh(); qc.invalidateQueries({ queryKey: ['scans'] }); },
+  });
 
-  return <div className="space-y-6">
-    {!embedded && <div><h1 className="text-3xl font-bold">Monitoring</h1><p className="mt-1 text-sm text-muted-foreground">用一个监控配置维护资产与关键词，系统会自动生成定时扫描规则。</p></div>}
-    <section className="rounded-xl border bg-card p-5 shadow-sm">
-      <div className="mb-4"><h2 className="text-lg font-semibold">新建监控配置</h2><p className="text-sm text-muted-foreground">逗号分隔多个值；保存后会立即进入第一次调度。</p></div>
-      <form className="grid gap-3 md:grid-cols-2" onSubmit={event => { event.preventDefault(); createProfile.mutate({ name: profile.name, enabled: true, company_name: profile.company, domains: split(profile.domains), email_domains: split(profile.emails), brands: split(profile.brands), product_names: split(profile.products), internal_projects: split(profile.projects), internal_domains: split(profile.internalDomains), github_orgs: split(profile.github), gitlab_groups: split(profile.gitlab), custom_keywords: split(profile.keywords), interval_minutes: profile.interval, schedule_kind: profile.scheduleKind, schedule_time: profile.scheduleTime, schedule_weekdays: profile.weekdays, cron_expression: profile.cron }); }}>
-        <input required className="rounded-md border bg-background px-3 py-2" placeholder="配置名称 *" value={profile.name} onChange={e => setProfile({...profile,name:e.target.value})}/><input className="rounded-md border bg-background px-3 py-2" placeholder="公司名称" value={profile.company} onChange={e => setProfile({...profile,company:e.target.value})}/>
-        {[['domains','域名'],['emails','邮箱域名'],['brands','品牌'],['products','产品名'],['projects','内部项目名'],['internalDomains','内部域名'],['github','GitHub Orgs'],['gitlab','GitLab Groups'],['keywords','自定义关键词']].map(([key,label]) => <input key={key} className="rounded-md border bg-background px-3 py-2" placeholder={`${label}（逗号分隔）`} value={profile[key as keyof typeof profile] as string} onChange={e => setProfile({...profile,[key]:e.target.value})}/>)}
-        <select className="rounded-md border bg-background px-3 py-2" value={profile.scheduleKind} onChange={e => setProfile({...profile,scheduleKind:e.target.value as MonitorRule['schedule_kind']})}><option value="INTERVAL">固定间隔</option><option value="DAILY">每天指定时间</option><option value="WEEKLY">每周指定时间</option><option value="CRON">高级 Cron</option></select>
-        {profile.scheduleKind === 'INTERVAL' && <select className="rounded-md border bg-background px-3 py-2" value={profile.interval} onChange={e => setProfile({...profile,interval:Number(e.target.value) as MonitorRule['interval_minutes']})}>{intervals.map(value => <option key={value} value={value}>{value < 60 ? `${value} 分钟` : `${value / 60} 小时`}</option>)}</select>}
-        {(profile.scheduleKind === 'DAILY' || profile.scheduleKind === 'WEEKLY') && <input aria-label="执行时间" type="time" required className="rounded-md border bg-background px-3 py-2" value={profile.scheduleTime} onChange={e => setProfile({...profile,scheduleTime:e.target.value})}/>}
-        {profile.scheduleKind === 'WEEKLY' && <div className="flex flex-wrap gap-2 md:col-span-2">{['一','二','三','四','五','六','日'].map((label,day)=><label key={day} className={`cursor-pointer rounded-md border px-3 py-2 text-sm ${profile.weekdays.includes(day)?'border-primary bg-primary/10':''}`}><input type="checkbox" className="mr-2" checked={profile.weekdays.includes(day)} onChange={()=>setProfile({...profile,weekdays:profile.weekdays.includes(day)?profile.weekdays.filter(value=>value!==day):[...profile.weekdays,day]})}/>周{label}</label>)}</div>}
-        {profile.scheduleKind === 'CRON' && <div className="md:col-span-2"><input required pattern="\\S+\\s+\\S+\\s+\\S+\\s+\\S+\\s+\\S+" className="w-full rounded-md border bg-background px-3 py-2 font-mono" placeholder="0 9 * * 1-5" value={profile.cron} onChange={e=>setProfile({...profile,cron:e.target.value})}/><p className="mt-1 text-xs text-muted-foreground">标准 5 段 Cron：分 时 日 月 周，例如 0 9 * * 1-5。</p></div>}
-        <button disabled={createProfile.isPending} className="rounded-md bg-primary px-4 py-2 font-medium text-primary-foreground disabled:opacity-50">{createProfile.isPending ? '创建中…' : '创建并启用监控'}</button>
-      </form>
-    </section>
-    <section className="space-y-3"><div className="flex items-center justify-between"><h2 className="text-lg font-semibold">已启用的监控</h2><span className="text-sm text-muted-foreground">{profiles.length} 个配置 · {rules.length} 条规则</span></div>
-      {profiles.length === 0 && <div className="rounded-xl border border-dashed p-8 text-center text-muted-foreground">尚无监控配置</div>}
-      {profiles.map(item => { const children = rulesByProfile.get(item.id) || []; return <div key={item.id} className="rounded-xl border bg-card p-5"><div className="flex flex-wrap items-start justify-between gap-3"><div><div className="flex items-center gap-2"><h3 className="font-semibold">{item.name}</h3><span className={`rounded-full px-2 py-0.5 text-xs ${item.enabled?'bg-green-500/10 text-green-700':'bg-slate-500/10 text-slate-600'}`}>{item.enabled?'已启用':'已停用'}</span></div><p className="mt-1 text-sm text-muted-foreground">{item.company_name || '未设置公司名'} · {item.interval_minutes} 分钟一次 · {children.length} 条自动规则</p></div><button className="text-sm text-destructive" onClick={() => deleteProfile.mutate(item.id)}>删除</button></div>
-        <div className="mt-4 overflow-x-auto"><table className="w-full text-sm"><thead className="text-left text-muted-foreground"><tr><th className="pb-2">监控目标</th><th className="pb-2">数据源</th><th className="pb-2">计划</th><th className="pb-2">下次执行</th><th className="pb-2">最近 Scan</th><th className="pb-2">状态</th><th className="pb-2 text-right">操作</th></tr></thead><tbody>{children.map(child => <tr key={child.id} className="border-t"><td className="py-2 pr-3">{child.value}</td><td>{child.source}</td><td>{child.schedule_kind === 'CRON' ? child.cron_expression : child.schedule_kind === 'INTERVAL' ? `${child.interval_minutes} min` : `${child.schedule_kind} ${child.schedule_time.slice(0,5)}`}</td><td>{fmt(child.next_run_at)}</td><td>{child.last_scan ? `#${child.last_scan}` : '尚未生成'}</td><td><span className="rounded-full bg-blue-500/10 px-2 py-1 text-xs text-blue-700">{child.is_running?'执行中':child.enabled?'等待调度':'已停用'}</span></td><td className="text-right"><button disabled={child.is_running || runNow.isPending} onClick={() => runNow.mutate(child.id)} className="rounded-md border px-3 py-1.5 text-xs font-medium hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50">{child.is_running ? '执行中' : '立即执行'}</button></td></tr>)}</tbody></table></div></div>; })}
-    </section>
-    <section className="rounded-xl border bg-card"><button className="flex w-full items-center justify-between p-5 text-left" onClick={() => setAdvanced(!advanced)}><span><strong>高级：手动规则</strong><span className="ml-2 text-sm font-normal text-muted-foreground">仅用于无法由监控配置表达的特殊目标</span></span><span>{advanced?'−':'+'}</span></button>{advanced && <div className="border-t p-5"><form className="grid gap-3 md:grid-cols-5" onSubmit={e => { e.preventDefault(); createRule.mutate({...rule,enabled:true}); }}><input required className="rounded-md border px-3 py-2" placeholder="规则名称" value={rule.name} onChange={e=>setRule({...rule,name:e.target.value})}/><input required className="rounded-md border px-3 py-2" placeholder="目标或查询" value={rule.value} onChange={e=>setRule({...rule,value:e.target.value})}/><select value={rule.source} onChange={e=>{const source=e.target.value as SourceType;setRule({...rule,source,scan_type:source==='brave'?'search_repos':'org_repos'});}}><option value="github">GitHub</option><option value="gitlab">GitLab</option><option value="gitee">Gitee</option><option value="brave">Brave</option></select><select value={rule.interval_minutes} onChange={e=>setRule({...rule,interval_minutes:Number(e.target.value) as MonitorRule['interval_minutes']})}>{intervals.map(v=><option key={v} value={v}>{v} min</option>)}</select><button className="rounded-md bg-secondary px-3 py-2">添加规则</button></form><div className="mt-4 divide-y">{rules.filter(item=>!item.auto_generated).map(item=><div key={item.id} className="flex items-center justify-between py-3 text-sm"><span>{item.name} · {item.source} · {item.value} · 下次 {fmt(item.next_run_at)}</span><span className="space-x-3"><button disabled={item.is_running || runNow.isPending} className="text-primary disabled:opacity-50" onClick={()=>runNow.mutate(item.id)}>立即执行</button><button className="text-destructive" onClick={()=>deleteRule.mutate(item.id)}>删除</button></span></div>)}</div></div>}</section>
+  return <div className="space-y-5">
+    {!embedded && <div><h1 className="text-3xl font-bold">监控计划</h1><p className="mt-1 text-sm text-muted-foreground">管理所有定时扫描任务。</p></div>}
+    <div className="flex flex-wrap items-center justify-between gap-3">
+      <div><h2 className="text-lg font-semibold">定时扫描任务</h2><p className="text-sm text-muted-foreground">共 {scheduledRules.length} 条；新任务默认启用。</p></div>
+      <Link to="/scans/new?mode=schedule" className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground">新建定时扫描</Link>
+    </div>
+
+    {isLoading ? <div className="rounded-xl border p-8 text-center text-muted-foreground">加载中…</div>
+      : error ? <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-5 text-destructive">监控计划加载失败</div>
+      : scheduledRules.length === 0 ? <div className="rounded-xl border border-dashed p-10 text-center"><p className="font-medium">暂无定时扫描任务</p><p className="mt-2 text-sm text-muted-foreground">通过“新建扫描”选择“定时执行”创建第一条计划。</p></div>
+      : <div className="overflow-x-auto rounded-xl border bg-card shadow-sm"><table className="w-full min-w-[980px] text-sm">
+        <thead className="bg-muted/60 text-left text-xs text-muted-foreground"><tr><th className="px-4 py-3">计划名称</th><th className="px-4 py-3">扫描目标</th><th className="px-4 py-3">执行计划</th><th className="px-4 py-3">下次执行</th><th className="px-4 py-3">最近 Scan</th><th className="px-4 py-3">启用</th><th className="px-4 py-3 text-right">操作</th></tr></thead>
+        <tbody className="divide-y">{scheduledRules.map(rule => <tr key={rule.id} className="hover:bg-muted/30">
+          <td className="px-4 py-4"><p className="font-medium">{rule.name}</p><p className="mt-1 text-xs uppercase text-muted-foreground">{rule.source} · {rule.scan_type}</p></td>
+          <td className="max-w-xs px-4 py-4"><p className="truncate font-mono text-xs" title={rule.value}>{rule.value}</p></td>
+          <td className="px-4 py-4">{scheduleLabel(rule)}</td>
+          <td className="whitespace-nowrap px-4 py-4">{rule.enabled ? fmt(rule.next_run_at) : '—'}</td>
+          <td className="px-4 py-4">{rule.last_scan ? <Link className="text-primary hover:underline" to={`/scans/${rule.last_scan}`}>#{rule.last_scan}</Link> : '尚未执行'}</td>
+          <td className="px-4 py-4"><button type="button" role="switch" aria-checked={rule.enabled} disabled={rule.is_running || updateRule.isPending} onClick={() => updateRule.mutate({ id: rule.id, enabled: !rule.enabled })} className={`relative h-6 w-11 rounded-full transition-colors disabled:opacity-50 ${rule.enabled ? 'bg-emerald-500' : 'bg-slate-300 dark:bg-slate-600'}`}><span className={`absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform ${rule.enabled ? 'translate-x-5' : 'translate-x-0'}`}/></button><p className="mt-1 text-[10px] text-muted-foreground">{rule.is_running ? '执行中' : rule.enabled ? '已启用' : '已停用'}</p></td>
+          <td className="whitespace-nowrap px-4 py-4 text-right"><button disabled={rule.is_running || runNow.isPending} onClick={() => runNow.mutate(rule.id)} className="mr-3 text-primary hover:underline disabled:opacity-50">{rule.is_running ? '执行中' : '立即执行'}</button><button disabled={rule.is_running || deleteRule.isPending} onClick={() => { if (window.confirm(`确定删除监控计划“${rule.name}”吗？历史 Scan 不会删除。`)) deleteRule.mutate(rule.id); }} className="text-destructive hover:underline disabled:opacity-50">删除</button></td>
+        </tr>)}</tbody>
+      </table></div>}
   </div>;
 };
