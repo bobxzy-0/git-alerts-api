@@ -98,6 +98,46 @@ def test_updating_token_without_proxy_field_preserves_proxy():
 
 
 @pytest.mark.django_db
+def test_updating_proxy_without_token_preserves_existing_token():
+    user = User.objects.create_user(username="proxy-only-update")
+    integration = UserIntegration(user=user, provider="you")
+    integration.set_token("existing-you-api-key")
+    integration.save()
+    original_encrypted_token = integration.token_encrypted
+    client = APIClient()
+    client.force_authenticate(user)
+
+    with patch("integrations.views.run_validation_task.delay"):
+        response = client.post("/integrations/", {
+            "provider": "you", "proxy_url": "http://127.0.0.1:8080",
+        }, format="json")
+
+    assert response.status_code == 201
+    integration.refresh_from_db()
+    assert integration.token_encrypted == original_encrypted_token
+    assert integration.get_token() == "existing-you-api-key"
+    assert integration.get_proxy_url() == "http://127.0.0.1:8080"
+
+
+@pytest.mark.django_db
+def test_manual_validation_immediately_sets_pending_status():
+    user = User.objects.create_user(username="live-validation")
+    integration = UserIntegration.objects.create(
+        user=user, provider="you", token_encrypted="encrypted", status=UserIntegration.Status.FAILED,
+        error_message="old error",
+    )
+    client = APIClient()
+    client.force_authenticate(user)
+    with patch("integrations.views.run_validation_task.delay") as delay:
+        response = client.post(f"/integrations/{integration.pk}/validate/")
+    assert response.status_code == 202
+    integration.refresh_from_db()
+    assert integration.status == UserIntegration.Status.PENDING
+    assert integration.error_message == ""
+    delay.assert_called_once_with(integration.pk)
+
+
+@pytest.mark.django_db
 @pytest.mark.parametrize("proxy_url", ["ftp://127.0.0.1:21", "socks5://127.0.0.1", "http://:8080", "http://127.0.0.1:99999"])
 def test_invalid_proxy_is_rejected(proxy_url):
     user = User.objects.create_user(username=f"invalid-proxy-{abs(hash(proxy_url))}")

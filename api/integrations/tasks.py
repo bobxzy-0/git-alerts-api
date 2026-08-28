@@ -45,8 +45,8 @@ def run_validation_task(integration_id):
             )
             integration.error_message = error_message
 
-        elif integration.provider == "brave":
-            is_valid, error_message = validate_source_integration("brave", integration.get_token(), integration.get_proxy_url())
+        elif integration.provider == "you":
+            is_valid, error_message = validate_source_integration("you", integration.get_token(), integration.get_proxy_url())
             integration.status = UserIntegration.Status.CONNECTED if is_valid else UserIntegration.Status.FAILED
             integration.error_message = error_message
 
@@ -81,7 +81,7 @@ def _sync_source_health(integration):
     """Make integration connectivity immediately visible on Source Health."""
     from core.models import SourceHealth
 
-    if integration.provider not in {"github", "gitlab", "gitee", "brave"}:
+    if integration.provider not in {"github", "gitlab", "gitee", "you"}:
         return
     now = timezone.now()
     connected = integration.status == UserIntegration.Status.CONNECTED

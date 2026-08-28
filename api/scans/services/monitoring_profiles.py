@@ -13,7 +13,7 @@ def sync_profile_rules(profile):
     for field in ("domains", "email_domains", "brands", "product_names", "internal_projects", "internal_domains", "custom_keywords"):
         search_values.extend(getattr(profile, field))
     for value in search_values:
-        specifications.append((SourceType.BRAVE, Scan.ScanTypes.SEARCH_REPOS, value, "Search"))
+        specifications.append((SourceType.YOU, Scan.ScanTypes.SEARCH_REPOS, value, "Search"))
     seen = set()
     for source, scan_type, value, label in specifications:
         normalized = str(value).strip()

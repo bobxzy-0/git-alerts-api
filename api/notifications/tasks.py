@@ -5,11 +5,11 @@ from urllib.parse import urlparse
 import requests
 from celery import shared_task
 from django.conf import settings
-from django.core.mail import send_mail
+from django.core.mail import get_connection, send_mail
 from django.utils import timezone
 
 from findings.models import Finding, FindingOccurrence
-from .models import AlertDelivery, NotificationChannel
+from .models import AlertDelivery, EmailConfiguration, NotificationChannel
 
 
 def _scheduled_for(finding, now):
@@ -69,11 +69,26 @@ def send_alert_delivery(delivery_id):
     }
     try:
         if delivery.channel.channel_type == NotificationChannel.Types.EMAIL:
+            email_config = EmailConfiguration.objects.filter(user=delivery.channel.user, enabled=True).first()
+            connection = None
+            from_email = settings.DEFAULT_FROM_EMAIL
+            if email_config:
+                connection = get_connection(
+                    backend="django.core.mail.backends.smtp.EmailBackend",
+                    host=email_config.host,
+                    port=email_config.port,
+                    username=email_config.username,
+                    password=email_config.get_password(),
+                    use_tls=email_config.use_tls,
+                    use_ssl=email_config.use_ssl,
+                )
+                from_email = email_config.from_email
             send_mail(
                 f"[{finding.severity}] SourceWatch finding: {finding.type}",
                 "\n".join(f"{key}: {value}" for key, value in payload.items()),
-                settings.DEFAULT_FROM_EMAIL,
+                from_email,
                 [delivery.channel.target],
+                connection=connection,
             )
         else:
             requests.post(delivery.channel.target, json=payload, timeout=(5, 15)).raise_for_status()

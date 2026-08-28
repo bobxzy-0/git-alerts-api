@@ -8,7 +8,7 @@ from .models import UserIntegration
 class UserIntegrationSerializer(serializers.ModelSerializer):
     """Serializer for creating and updating an integration token"""
     user = serializers.CharField(source="user.username", read_only=True)
-    token = serializers.CharField(write_only=True)
+    token = serializers.CharField(write_only=True, required=False, allow_blank=True)
     proxy_url = serializers.CharField(write_only=True, required=False, allow_blank=True)
     proxy_configured = serializers.SerializerMethodField()
     proxy_scheme = serializers.SerializerMethodField()
@@ -29,8 +29,12 @@ class UserIntegrationSerializer(serializers.ModelSerializer):
     def validate(self, attrs):
         token = attrs.get("token")
 
-        if not token or len(token) < 10:
-            raise serializers.ValidationError("Invalid token provided")
+        provider = attrs.get("provider", getattr(self.instance, "provider", None))
+        existing = UserIntegration.objects.filter(user=self.context["request"].user, provider=provider).first()
+        if not existing and (not token or len(token.strip()) < 10):
+            raise serializers.ValidationError({"token": "A token is required for a new integration."})
+        if token and len(token.strip()) < 10:
+            raise serializers.ValidationError({"token": "Invalid token provided."})
         proxy_url = attrs.get("proxy_url", "")
         if proxy_url:
             parsed = urlparse(proxy_url)
@@ -46,14 +50,15 @@ class UserIntegrationSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         user = self.context["request"].user
         provider = validated_data["provider"]
-        token = validated_data["token"]
+        token = validated_data.get("token", "").strip()
         proxy_url = validated_data.get("proxy_url")
 
         obj, _ = UserIntegration.objects.get_or_create(
             user=user,
             provider=provider,
         )
-        obj.set_token(token)
+        if token:
+            obj.set_token(token)
         if proxy_url is not None:
             obj.set_proxy_url(proxy_url)
         obj.save()

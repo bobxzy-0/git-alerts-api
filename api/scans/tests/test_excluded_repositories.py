@@ -43,9 +43,9 @@ def test_permanently_excluded_repository_never_reaches_detection_engine():
 
 
 @pytest.mark.django_db
-def test_brave_does_not_enqueue_permanently_excluded_repository():
-    user = User.objects.create_user(username="brave-exclude")
-    scan = Scan.objects.create(user=user, source="brave", type="search_repos", value="acme")
+def test_you_does_not_enqueue_permanently_excluded_repository():
+    user = User.objects.create_user(username="you-exclude")
+    scan = Scan.objects.create(user=user, source="you", type="search_repos", value="acme")
     ExcludedRepository.objects.create(
         user=user, source="github", repository_url="https://github.com/acme/ignored",
     )

@@ -3,21 +3,25 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { integrationsApi } from '@/services/api';
 import type { IntegrationType, UserIntegration } from '@/types';
 
-type SourceProvider = Extract<IntegrationType, 'github' | 'gitlab' | 'gitee' | 'brave'>;
+type SourceProvider = Extract<IntegrationType, 'github' | 'gitlab' | 'gitee' | 'you'>;
 type ProxyMode = 'keep' | 'none' | 'configure';
 type ProxyScheme = 'http' | 'https' | 'socks5';
 const CONFIG = {
   github: { name: 'GitHub', placeholder: 'ghp_xxxxxxxxxxxxxxxxxxxx', help: 'Use a token with repository and organization read access.' },
   gitlab: { name: 'GitLab', placeholder: 'glpat-xxxxxxxxxxxxxxxxxxxx', help: 'Use a token with read_api access.' },
   gitee: { name: 'Gitee', placeholder: 'xxxxxxxxxxxxxxxxxxxx', help: 'Use an API v5 personal access token with repository read access.' },
-  brave: { name: 'Brave Search', placeholder: 'BSA-xxxxxxxxxxxxxxxxxxxx', help: 'Use an official Brave Search API subscription key.' },
+  you: { name: 'You.com Search', placeholder: 'xxxxxxxxxxxxxxxxxxxx', help: 'Use an API key created at you.com/platform/api-keys.' },
 } satisfies Record<SourceProvider, { name: string; placeholder: string; help: string }>;
 
 export const Integrations: React.FC = () => {
   const qc = useQueryClient();
-  const { data = [], isLoading } = useQuery({ queryKey: ['integrations'], queryFn: integrationsApi.list });
+  const { data = [], isLoading } = useQuery({ queryKey: ['integrations'], queryFn: integrationsApi.list, refetchInterval: 1_500, refetchIntervalInBackground: false, refetchOnWindowFocus: true });
   const create = useMutation({ mutationFn: integrationsApi.create, onSuccess: () => qc.invalidateQueries({ queryKey: ['integrations'] }) });
-  const validate = useMutation({ mutationFn: integrationsApi.validate, onSuccess: () => qc.invalidateQueries({ queryKey: ['integrations'] }) });
+  const validate = useMutation({
+    mutationFn: integrationsApi.validate,
+    onMutate: (id) => qc.setQueryData<UserIntegration[]>(['integrations'], current => current?.map(item => item.id === id ? {...item,status:'pending',error_message:''} : item)),
+    onSettled: () => qc.invalidateQueries({ queryKey: ['integrations'] }),
+  });
   return <div className="max-w-4xl space-y-6">
     <p className="text-sm text-muted-foreground">Connect source APIs used for discovery and scanning.</p>
     {isLoading ? <p>Loading...</p> : (Object.keys(CONFIG) as SourceProvider[]).map(provider => <IntegrationCard
@@ -45,7 +49,7 @@ function IntegrationCard({ provider, integration, busy, onSave, onValidate }: {
   const connected = integration?.status === 'connected';
   return <section className="bg-card border rounded-lg p-6 space-y-4">
     <div className="flex justify-between gap-4"><div><h2 className="text-xl font-semibold">{config.name}</h2><p className="text-sm text-muted-foreground">{config.help}</p></div>
-      <span className={`px-3 py-1 rounded-full text-sm h-fit ${connected ? 'bg-green-500/10 text-green-600' : 'bg-yellow-500/10 text-yellow-600'}`}>{integration?.status ?? 'not connected'}</span>
+      <span className={`px-3 py-1 rounded-full text-sm h-fit ${connected ? 'bg-green-500/10 text-green-600' : integration?.status === 'pending' ? 'bg-blue-500/10 text-blue-600' : 'bg-yellow-500/10 text-yellow-600'}`}>{integration?.status ?? 'not connected'}</span>
     </div>
     {integration?.error_message && <p className="p-3 bg-destructive/10 text-destructive rounded">{integration.error_message}</p>}
     {integration && !editing ? <div className="space-y-3">
@@ -62,7 +66,8 @@ function IntegrationCard({ provider, integration, busy, onSave, onValidate }: {
       }
       onSave(token.trim(), proxyUrl); setToken(''); setEditing(false);
     }}>
-      <input type="password" required minLength={10} value={token} onChange={event => setToken(event.target.value)} placeholder={config.placeholder} className="w-full px-3 py-2 border rounded bg-background" />
+      <input type="password" required={!integration} minLength={token ? 10 : undefined} value={token} onChange={event => setToken(event.target.value)} placeholder={integration ? 'Leave blank to keep current encrypted key' : config.placeholder} className="w-full px-3 py-2 border rounded bg-background" />
+      {integration && <p className="-mt-2 text-xs text-muted-foreground">The API key is optional when only changing proxy settings.</p>}
       <div className="rounded-lg border bg-muted/20 p-4 space-y-3">
         <div><h3 className="font-medium">Source proxy</h3><p className="text-xs text-muted-foreground">Used by this source's API requests and repository scans. HTTP, HTTPS and SOCKS5 are supported.</p></div>
         <select value={proxyMode} onChange={event => setProxyMode(event.target.value as ProxyMode)} className="w-full px-3 py-2 border rounded bg-background">

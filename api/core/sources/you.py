@@ -1,29 +1,30 @@
 from urllib.parse import urlparse
 
-from core.clients.brave_client import BraveSearchClient
+from core.clients.you_client import YouSearchClient
 from scans.models import Scan, SourceType
 
 from .base import AdapterHealth, RepositoryTarget
 from .search_engine import SearchEngineAdapter
 
 
-class BraveSearchAdapter(SearchEngineAdapter):
-    source = SourceType.BRAVE
+class YouSearchAdapter(SearchEngineAdapter):
+    source = SourceType.YOU
 
     def __init__(self, token: str, proxy_url: str = ""):
-        self.client = BraveSearchClient(token, proxy_url=proxy_url)
+        self.client = YouSearchClient(token, proxy_url=proxy_url)
 
     def health_check(self):
-        _, headers = self.client.search("site:github.com", count=1)
-        remaining = headers.get("X-RateLimit-Remaining")
-        return AdapterHealth(True, int(remaining) if remaining and remaining.isdigit() else None)
+        self.client.search("site:github.com", count=1)
+        return AdapterHealth(True)
 
     def search(self, scan_type, value, *, org_repos_only=False):
         if scan_type != Scan.ScanTypes.SEARCH_REPOS:
-            raise ValueError(f"Unsupported Brave Search scan type: {scan_type}")
+            raise ValueError("You.com Search supports search_repos only")
         results, _ = self.client.search(value)
         targets = {}
         for result in results:
+            if not isinstance(result, dict):
+                continue
             target = self.resolve(result.get("url", ""))
             if target:
                 targets[f"{target.source}:{target.owner}/{target.name}"] = target
@@ -42,4 +43,4 @@ class BraveSearchAdapter(SearchEngineAdapter):
             owner, name = "/".join(parts[:-1]), parts[-1].removesuffix(".git")
         else:
             owner, name = parts[0], parts[1].removesuffix(".git")
-        return RepositoryTarget(platform, f"https://{host}/{owner}/{name}", owner, name, {"discovered_by": "brave"})
+        return RepositoryTarget(platform, f"https://{host}/{owner}/{name}", owner, name, {"discovered_by": "you"})

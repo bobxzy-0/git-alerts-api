@@ -1,8 +1,8 @@
 from rest_framework import generics
 from rest_framework.permissions import IsAuthenticated
 
-from .models import AlertDelivery, NotificationChannel
-from .serializers import AlertDeliverySerializer, NotificationChannelSerializer
+from .models import AlertDelivery, EmailConfiguration, NotificationChannel
+from .serializers import AlertDeliverySerializer, EmailConfigurationSerializer, NotificationChannelSerializer
 
 
 class NotificationChannelView(generics.ListCreateAPIView):
@@ -22,3 +22,12 @@ class AlertDeliveryView(generics.ListAPIView):
     serializer_class = AlertDeliverySerializer
     permission_classes = [IsAuthenticated]
     def get_queryset(self): return AlertDelivery.objects.filter(channel__user=self.request.user)
+
+
+class EmailConfigurationView(generics.RetrieveUpdateAPIView):
+    serializer_class = EmailConfigurationSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_object(self):
+        obj, _ = EmailConfiguration.objects.get_or_create(user=self.request.user)
+        return obj

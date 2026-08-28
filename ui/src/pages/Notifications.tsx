@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Bell, Mail, Plus, Trash2, Webhook } from 'lucide-react';
-import { notificationChannelsApi } from '@/services/api';
-import type { NotificationChannel } from '@/types';
+import { Bell, Mail, Plus, Send, Server, Trash2, Webhook } from 'lucide-react';
+import { emailConfigurationApi, notificationChannelsApi } from '@/services/api';
+import type { EmailConfiguration, NotificationChannel } from '@/types';
 
 export const Notifications: React.FC = () => {
   const qc = useQueryClient();
@@ -20,8 +20,29 @@ export const Notifications: React.FC = () => {
   const add = useMutation({ mutationFn:notificationChannelsApi.create, onSuccess:() => { refresh(); setForm({...form,name:'',target:''}); setShowForm(false); } });
   const update = useMutation({ mutationFn:({channel,enabled}:{channel:NotificationChannel;enabled:boolean}) => notificationChannelsApi.update(channel.id,{enabled}), onSuccess:refresh });
   const remove = useMutation({ mutationFn:notificationChannelsApi.delete, onSuccess:refresh });
+  const { data: savedEmailConfig } = useQuery({ queryKey:['email-configuration'], queryFn:emailConfigurationApi.get });
+  const [emailConfig, setEmailConfig] = useState<Partial<EmailConfiguration>>({ enabled:false, host:'', port:587, username:'', password:'', from_email:'', use_tls:true, use_ssl:false });
+  useEffect(() => { if (savedEmailConfig) setEmailConfig({...savedEmailConfig,password:''}); }, [savedEmailConfig]);
+  const saveEmailConfig = useMutation({
+    mutationFn:emailConfigurationApi.update,
+    onSuccess:(value) => { qc.setQueryData(['email-configuration'], value); setEmailConfig({...value,password:''}); },
+  });
 
   return <div className="space-y-5">
+    <form className="rounded-xl border bg-card p-5 shadow-sm" onSubmit={event => { event.preventDefault(); saveEmailConfig.mutate(emailConfig); }}>
+      <div className="mb-4 flex flex-wrap items-start justify-between gap-3"><div className="flex gap-3"><span className="rounded-lg bg-primary/10 p-2 text-primary"><Server className="h-5 w-5"/></span><div><h2 className="font-semibold">Email Sender</h2><p className="text-sm text-muted-foreground">Configure the SMTP account and sender used by all Email channels.</p></div></div><label className="flex items-center gap-2 text-sm"><span>{emailConfig.enabled?'Enabled':'Disabled'}</span><button type="button" role="switch" aria-checked={emailConfig.enabled} onClick={() => setEmailConfig({...emailConfig,enabled:!emailConfig.enabled})} className={`relative h-6 w-11 rounded-full ${emailConfig.enabled?'bg-emerald-500':'bg-slate-300 dark:bg-slate-600'}`}><span className={`absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform ${emailConfig.enabled?'translate-x-5':''}`}/></button></label></div>
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <label className="text-sm"><span className="mb-1.5 block font-medium">SMTP Server</span><input required={emailConfig.enabled} value={emailConfig.host||''} onChange={e=>setEmailConfig({...emailConfig,host:e.target.value})} placeholder="smtp.example.com" className="w-full rounded-md border bg-background px-3 py-2"/></label>
+        <label className="text-sm"><span className="mb-1.5 block font-medium">SMTP Port</span><input required type="number" min="1" max="65535" value={emailConfig.port||587} onChange={e=>setEmailConfig({...emailConfig,port:Number(e.target.value)})} className="w-full rounded-md border bg-background px-3 py-2"/></label>
+        <label className="text-sm"><span className="mb-1.5 block font-medium">Sender Address</span><input required={emailConfig.enabled} type="email" value={emailConfig.from_email||''} onChange={e=>setEmailConfig({...emailConfig,from_email:e.target.value})} placeholder="alerts@example.com" className="w-full rounded-md border bg-background px-3 py-2"/></label>
+        <label className="text-sm"><span className="mb-1.5 block font-medium">SMTP Username</span><input value={emailConfig.username||''} onChange={e=>setEmailConfig({...emailConfig,username:e.target.value})} autoComplete="username" className="w-full rounded-md border bg-background px-3 py-2"/></label>
+        <label className="text-sm"><span className="mb-1.5 block font-medium">SMTP Password</span><input type="password" value={emailConfig.password||''} onChange={e=>setEmailConfig({...emailConfig,password:e.target.value})} autoComplete="new-password" placeholder={emailConfig.password_configured?'Keep current encrypted password':'Enter SMTP password'} className="w-full rounded-md border bg-background px-3 py-2"/></label>
+        <div className="flex items-end gap-5 pb-2 text-sm"><label className="flex items-center gap-2"><input type="checkbox" checked={!!emailConfig.use_tls} onChange={e=>setEmailConfig({...emailConfig,use_tls:e.target.checked,use_ssl:e.target.checked?false:emailConfig.use_ssl})}/>STARTTLS</label><label className="flex items-center gap-2"><input type="checkbox" checked={!!emailConfig.use_ssl} onChange={e=>setEmailConfig({...emailConfig,use_ssl:e.target.checked,use_tls:e.target.checked?false:emailConfig.use_tls})}/>SSL</label></div>
+      </div>
+      {saveEmailConfig.isError && <p className="mt-3 text-sm text-destructive">Failed to save Email sender settings.</p>}
+      {saveEmailConfig.isSuccess && <p className="mt-3 text-sm text-emerald-600">Email sender settings saved.</p>}
+      <div className="mt-4 flex justify-end"><button disabled={saveEmailConfig.isPending} className="inline-flex items-center gap-2 rounded-lg bg-primary px-5 py-2 text-sm font-medium text-primary-foreground disabled:opacity-50"><Send className="h-4 w-4"/>{saveEmailConfig.isPending?'Saving...':'Save Email Sender'}</button></div>
+    </form>
     <div className="flex flex-wrap items-center justify-between gap-3"><div className="flex items-center gap-2 text-sm text-muted-foreground"><Bell className="h-4 w-4"/><span>CRITICAL/HIGH are sent immediately; only NEW and REOPENED Findings are notified by default.</span></div><button onClick={() => setShowForm(!showForm)} className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground"><Plus className="h-4 w-4"/>{showForm ? 'Collapse' : 'Add Notification Channel'}</button></div>
 
     {showForm && <form className="rounded-xl border bg-card p-5 shadow-sm" onSubmit={event => {event.preventDefault();add.mutate(form);}}>

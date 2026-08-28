@@ -67,7 +67,7 @@ class ScanOrchestrator:
 
         self._save_repository_matches(active_records)
 
-        if self.scan.source == SourceType.BRAVE:
+        if self.scan.source == SourceType.YOU:
             for record in active_records:
                 item, created = RepositoryScanQueue.objects.get_or_create(
                     user=self.scan.user,

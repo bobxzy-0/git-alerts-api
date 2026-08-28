@@ -30,7 +30,7 @@ class SourceHealthView(generics.ListAPIView):
         from integrations.models import UserIntegration
         configured_sources = UserIntegration.objects.filter(
             user=self.request.user,
-            provider__in=["github", "gitlab", "gitee", "brave"],
+            provider__in=["github", "gitlab", "gitee", "you"],
         ).values_list("provider", flat=True)
         for source in configured_sources:
             SourceHealth.objects.get_or_create(user=self.request.user, source=source)
@@ -79,7 +79,7 @@ class DashboardView(APIView):
         from integrations.models import UserIntegration
         for source in UserIntegration.objects.filter(
             user=request.user,
-            provider__in=["github", "gitlab", "gitee", "brave"],
+            provider__in=["github", "gitlab", "gitee", "you"],
         ).values_list("provider", flat=True):
             SourceHealth.objects.get_or_create(user=request.user, source=source)
         scans = Scan.objects.filter(user=request.user)

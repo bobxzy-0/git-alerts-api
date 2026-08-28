@@ -9,7 +9,7 @@ class UserIntegration(models.Model):
         GITHUB = "github", "GitHub"
         GITLAB = "gitlab", "GitLab"
         GITEE = "gitee", "Gitee"
-        BRAVE = "brave", "Brave Search"
+        YOU = "you", "You.com Search"
         SLACK = "slack", "Slack"
     
     class Status(models.TextChoices):

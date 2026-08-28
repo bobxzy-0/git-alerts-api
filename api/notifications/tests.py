@@ -3,11 +3,12 @@ from unittest.mock import Mock, patch
 import pytest
 from django.contrib.auth.models import User
 from django.utils import timezone
+from rest_framework.test import APIClient
 
 from core.services.scan_orchestrator import ScanOrchestrator
 from findings.models import Finding
 from scans.models import Scan
-from .models import AlertDelivery, NotificationChannel
+from .models import AlertDelivery, EmailConfiguration, NotificationChannel
 from .tasks import queue_scan_alerts, send_alert_delivery, validate_webhook_target
 
 
@@ -50,6 +51,46 @@ def test_email_delivery_records_success(finding_and_channel):
     delivery.refresh_from_db()
     assert delivery.status == AlertDelivery.Status.SENT
     send.assert_called_once()
+
+
+@pytest.mark.django_db
+def test_email_configuration_password_is_encrypted_and_not_returned():
+    user = User.objects.create_user(username="smtp-user", password="test-password")
+    client = APIClient()
+    client.force_authenticate(user)
+    response = client.patch("/notifications/email-settings/", {
+        "enabled": True, "host": "smtp.example.com", "port": 587,
+        "username": "alerts@example.com", "password": "smtp-secret-value",
+        "from_email": "alerts@example.com", "use_tls": True, "use_ssl": False,
+    }, format="json")
+    assert response.status_code == 200
+    assert "password" not in response.json()
+    assert response.json()["password_configured"] is True
+    config = EmailConfiguration.objects.get(user=user)
+    assert config.password_encrypted != "smtp-secret-value"
+    assert config.get_password() == "smtp-secret-value"
+
+
+@pytest.mark.django_db
+def test_email_delivery_uses_user_smtp_configuration(finding_and_channel):
+    scan, finding, channel = finding_and_channel
+    config = EmailConfiguration.objects.create(
+        user=scan.user, enabled=True, host="smtp.example.com", port=465,
+        username="mailer", from_email="alerts@example.com", use_tls=False, use_ssl=True,
+    )
+    config.set_password("secret-password")
+    config.save(update_fields=["password_encrypted"])
+    occurrence = finding.occurrences.get(scan=scan)
+    delivery = AlertDelivery.objects.create(channel=channel, finding=finding, occurrence=occurrence, scheduled_for=timezone.now())
+    connection = Mock()
+    with patch("notifications.tasks.get_connection", return_value=connection) as get_connection, patch("notifications.tasks.send_mail", return_value=1) as send:
+        send_alert_delivery(delivery.pk)
+    get_connection.assert_called_once_with(
+        backend="django.core.mail.backends.smtp.EmailBackend", host="smtp.example.com",
+        port=465, username="mailer", password="secret-password", use_tls=False, use_ssl=True,
+    )
+    assert send.call_args.args[2] == "alerts@example.com"
+    assert send.call_args.kwargs["connection"] is connection
 
 
 def test_webhook_rejects_private_or_insecure_targets():
