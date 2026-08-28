@@ -1,11 +1,13 @@
 from logging import getLogger
-from rest_framework import generics
+from rest_framework import generics, status
+from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from django.shortcuts import get_object_or_404
+from django.utils import timezone
 from .serializers import ExcludedRepositorySerializer, MonitorRuleSerializer, MonitoringProfileSerializer, ScanRepositorySerializer, ScanSerializer
 from .models import ExcludedRepository, MonitorRule, MonitoringProfile, Scan, ScanRepository
 from findings.serializers import FindingSerializer
-from .tasks import run_scan_task
+from .tasks import run_monitor_rule_task, run_scan_task
 
 logger = getLogger(__name__)
 
@@ -85,6 +87,48 @@ class MonitorRuleDetailsView(generics.RetrieveUpdateDestroyAPIView):
 
     def get_queryset(self):
         return MonitorRule.objects.filter(user=self.request.user)
+
+
+class MonitorRuleRunNowView(generics.GenericAPIView):
+    serializer_class = ScanSerializer
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        rule = get_object_or_404(MonitorRule, pk=pk, user=request.user)
+        now = timezone.now()
+        claimed = MonitorRule.objects.filter(pk=rule.pk, is_running=False).update(
+            is_running=True, locked_at=now
+        )
+        if not claimed:
+            return Response(
+                {"detail": "This monitoring plan is already running."},
+                status=status.HTTP_409_CONFLICT,
+            )
+        scan = Scan.objects.create(
+            user=rule.user, source=rule.source, type=rule.scan_type,
+            value=rule.value, trigger_type=Scan.TriggerTypes.MANUAL,
+            monitor_rule=rule,
+        )
+        MonitorRule.objects.filter(pk=rule.pk).update(last_scan=scan)
+        try:
+            run_monitor_rule_task.delay(rule.pk, scan.pk, True)
+        except Exception as exc:
+            completed_at = timezone.now()
+            scan.execution_status = Scan.ExecutionStatus.FAILED
+            scan.monitoring_status = Scan.MonitoringStatus.UNKNOWN
+            scan.result_status = Scan.ResultStatus.FAILED_INTERNAL
+            scan.error_code = "MONITOR_DISPATCH_FAILED"
+            scan.error_message = str(exc)
+            scan.completed_at = completed_at
+            scan.save(update_fields=[
+                "execution_status", "monitoring_status", "result_status",
+                "error_code", "error_message", "completed_at", "updated_at",
+            ])
+            MonitorRule.objects.filter(pk=rule.pk).update(
+                is_running=False, locked_at=None
+            )
+            return Response(ScanSerializer(scan).data, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+        return Response(ScanSerializer(scan).data, status=status.HTTP_202_ACCEPTED)
 
 
 class MonitoringProfileView(generics.ListCreateAPIView):
