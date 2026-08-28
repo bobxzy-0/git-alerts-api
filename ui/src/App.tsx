@@ -7,7 +7,7 @@ import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { Home } from '@/pages/Home';
 import { Login } from '@/pages/Login';
 import { Dashboard } from '@/pages/Dashboard';
-import { Scans } from '@/pages/Scans';
+import { ScanWorkspace } from '@/pages/ScanWorkspace';
 import { NewScan } from '@/pages/NewScan';
 import { ScanDetail } from '@/pages/ScanDetail';
 import { Findings } from '@/pages/Findings';
@@ -15,8 +15,6 @@ import { Integrations } from '@/pages/Integrations';
 import { Settings } from '@/pages/Settings';
 import { SourceHealth } from '@/pages/SourceHealth';
 import { Notifications } from '@/pages/Notifications';
-import { Monitoring } from '@/pages/Monitoring';
-import { ExcludedRepositories } from '@/pages/ExcludedRepositories';
 import { LanguageProvider } from '@/i18n/LanguageContext';
 
 // Create a client
@@ -50,18 +48,18 @@ function App() {
             >
               <Route path="/" element={<Home />} />
               <Route path="/dashboard" element={<Dashboard />} />
-              <Route path="/scans" element={<Scans />} />
+              <Route path="/scans" element={<ScanWorkspace />} />
               <Route path="/scans/new" element={<NewScan />} />
               <Route path="/scans/:id" element={<ScanDetail />} />
               <Route path="/findings" element={<Findings />} />
               <Route path="/integrations" element={<Integrations />} />
               <Route path="/settings" element={<Settings />} />
-              <Route path="/monitoring" element={<Monitoring />} />
-              <Route path="/monitor-rules" element={<Navigate to="/monitoring" replace />} />
+              <Route path="/monitoring" element={<Navigate to="/scans?tab=monitors" replace />} />
+              <Route path="/monitor-rules" element={<Navigate to="/scans?tab=monitors" replace />} />
               <Route path="/source-health" element={<SourceHealth />} />
               <Route path="/notifications" element={<Notifications />} />
-              <Route path="/monitoring-profiles" element={<Navigate to="/monitoring" replace />} />
-              <Route path="/excluded-repositories" element={<ExcludedRepositories />} />
+              <Route path="/monitoring-profiles" element={<Navigate to="/scans?tab=monitors" replace />} />
+              <Route path="/excluded-repositories" element={<Navigate to="/settings?tab=exclusions" replace />} />
             </Route>
 
             {/* Catch all */}
