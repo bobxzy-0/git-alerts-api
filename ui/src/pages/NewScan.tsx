@@ -58,6 +58,7 @@ export const NewScan: React.FC = () => {
   const [scheduleTime, setScheduleTime] = useState('09:00');
   const [weekdays, setWeekdays] = useState<number[]>([0]);
   const [cronExpression, setCronExpression] = useState('0 9 * * 1-5');
+  const [scheduleTimezone, setScheduleTimezone] = useState('Asia/Shanghai');
 
   const createScanMutation = useMutation({
     mutationFn: scansApi.create,
@@ -84,7 +85,7 @@ export const NewScan: React.FC = () => {
         name: ruleName, enabled: true, source, scan_type: scanType, value: query,
         interval_minutes: intervalMinutes, schedule_kind: scheduleKind,
         schedule_time: scheduleTime, schedule_weekdays: weekdays,
-        cron_expression: cronExpression,
+        cron_expression: cronExpression, timezone: scheduleTimezone,
       });
     }
   };
@@ -170,6 +171,7 @@ export const NewScan: React.FC = () => {
           <h2 className="font-semibold">Schedule</h2>
           <div><label className="mb-2 block text-sm font-medium">Plan Name</label><input required className="w-full rounded-md border bg-background px-3 py-2" placeholder="Example: Daily company domain monitoring" value={ruleName} onChange={e => setRuleName(e.target.value)}/></div>
           <div className="grid gap-3 sm:grid-cols-2"><select className="rounded-md border bg-background px-3 py-2" value={scheduleKind} onChange={e => setScheduleKind(e.target.value as MonitorRule['schedule_kind'])}><option value="INTERVAL">Fixed Interval</option><option value="DAILY">Daily at a specific time</option><option value="WEEKLY">Weekly at a specific time</option><option value="CRON">Advanced Cron</option></select>
+            <select aria-label="Time Zone" className="rounded-md border bg-background px-3 py-2" value={scheduleTimezone} onChange={e => setScheduleTimezone(e.target.value)}>{['Asia/Shanghai','Asia/Hong_Kong','Asia/Singapore','UTC','Europe/Berlin','America/New_York','America/Los_Angeles'].map(zone => <option key={zone} value={zone}>{zone}</option>)}</select>
           {scheduleKind === 'INTERVAL' && <select className="rounded-md border bg-background px-3 py-2" value={intervalMinutes} onChange={e => setIntervalMinutes(Number(e.target.value) as MonitorRule['interval_minutes'])}>{intervals.map(value => <option key={value} value={value}>{value < 60 ? `${value} minutes` : `${value / 60} hours`}</option>)}</select>}
           {(scheduleKind === 'DAILY' || scheduleKind === 'WEEKLY') && <input aria-label="Run Time" type="time" required className="rounded-md border bg-background px-3 py-2" value={scheduleTime} onChange={e => setScheduleTime(e.target.value)}/>}</div>
           {scheduleKind === 'WEEKLY' && <div className="flex flex-wrap gap-2">{['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'].map((label, day) => <label key={day} className={`cursor-pointer rounded-md border px-3 py-2 text-sm ${weekdays.includes(day) ? 'border-primary bg-primary/10' : ''}`}><input type="checkbox" className="mr-2" checked={weekdays.includes(day)} onChange={() => setWeekdays(weekdays.includes(day) ? weekdays.filter(value => value !== day) : [...weekdays, day])}/>{label}</label>)}</div>}

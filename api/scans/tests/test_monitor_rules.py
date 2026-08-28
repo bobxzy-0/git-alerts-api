@@ -1,5 +1,6 @@
 from datetime import time, timedelta
 from unittest.mock import patch
+from zoneinfo import ZoneInfo
 
 import pytest
 from django.contrib.auth.models import User
@@ -45,8 +46,25 @@ def test_daily_rule_calculates_next_requested_time(user):
         schedule_kind=MonitorRule.ScheduleKinds.DAILY,
         schedule_time=time(9, 30),
     )
-    local_next = timezone.localtime(rule.next_run_at)
+    local_next = rule.next_run_at.astimezone(ZoneInfo("Asia/Shanghai"))
     assert (local_next.hour, local_next.minute) == (9, 30)
+
+
+@pytest.mark.django_db
+def test_rule_timezone_controls_daily_schedule_and_is_validated(user):
+    rule = MonitorRule.objects.create(
+        user=user, name="Shanghai daily", scan_type=Scan.ScanTypes.SEARCH_REPOS,
+        value="company", schedule_kind=MonitorRule.ScheduleKinds.DAILY,
+        schedule_time=time(9, 30), timezone="Asia/Shanghai",
+    )
+    assert (rule.next_run_at.astimezone(ZoneInfo("Asia/Shanghai")).hour,
+            rule.next_run_at.astimezone(ZoneInfo("Asia/Shanghai")).minute) == (9, 30)
+
+    client = APIClient()
+    client.force_authenticate(user)
+    response = client.patch(f"/monitor-rules/{rule.pk}/", {"timezone": "Not/AZone"}, format="json")
+    assert response.status_code == 400
+    assert "timezone" in response.json()
 
 
 @pytest.mark.django_db

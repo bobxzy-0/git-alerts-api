@@ -40,7 +40,7 @@ export const dashboardApi = { get: async (): Promise<DashboardSummary> => (await
 export const sourceHealthApi = { list: async (): Promise<SourceHealth[]> => (await apiClient.get<SourceHealth[]>('/source-health/')).data };
 export const monitorRulesApi = {
   list: async (): Promise<MonitorRule[]> => (await apiClient.get<MonitorRule[]>('/monitor-rules/')).data,
-  create: async (data: Pick<MonitorRule, 'name' | 'enabled' | 'source' | 'scan_type' | 'value' | 'interval_minutes'> & Partial<Pick<MonitorRule, 'schedule_kind' | 'schedule_time' | 'schedule_weekdays' | 'cron_expression'>>): Promise<MonitorRule> => (await apiClient.post<MonitorRule>('/monitor-rules/', data)).data,
+  create: async (data: Pick<MonitorRule, 'name' | 'enabled' | 'source' | 'scan_type' | 'value' | 'interval_minutes'> & Partial<Pick<MonitorRule, 'schedule_kind' | 'schedule_time' | 'schedule_weekdays' | 'cron_expression' | 'timezone'>>): Promise<MonitorRule> => (await apiClient.post<MonitorRule>('/monitor-rules/', data)).data,
   update: async (id: number, data: Partial<MonitorRule>): Promise<MonitorRule> => (await apiClient.patch<MonitorRule>(`/monitor-rules/${id}/`, data)).data,
   delete: async (id: number): Promise<void> => { await apiClient.delete(`/monitor-rules/${id}/`); },
   runNow: async (id: number): Promise<Scan> => (await apiClient.post<Scan>(`/monitor-rules/${id}/run/`)).data,

@@ -5,7 +5,9 @@ from core.sources.base import SourceAuthError, SourceNetworkError, SourceRateLim
 
 class BraveSearchClient:
     def __init__(self, api_key: str, proxy_url: str = ""):
-        self.api_key = api_key
+        # Copy/paste and encrypted storage must not turn surrounding whitespace into
+        # part of the subscription token sent on the wire.
+        self.api_key = api_key.strip()
         self.url = "https://api.search.brave.com/res/v1/web/search"
         self.proxies = {"http": proxy_url, "https": proxy_url} if proxy_url else None
 
@@ -35,6 +37,8 @@ class BraveSearchClient:
             raise SourceNetworkError(f"Brave Search service error: HTTP {response.status_code}")
         if not response.ok:
             detail = self._error_detail(response)
+            if response.status_code == 422 and "subscription token" in detail.lower() and "invalid" in detail.lower():
+                raise SourceAuthError("Brave Search API key is invalid or unauthorized")
             suffix = f" ({detail})" if detail else ""
             raise SourceResponseError(f"Brave Search API error: HTTP {response.status_code}{suffix}")
         try:

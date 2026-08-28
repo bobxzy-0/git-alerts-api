@@ -178,7 +178,7 @@ export interface MonitorRule {
   profile: number | null; auto_generated: boolean;
   interval_minutes: 15 | 30 | 60 | 120 | 360 | 720 | 1440;
   schedule_kind: 'INTERVAL' | 'DAILY' | 'WEEKLY' | 'CRON'; schedule_time: string;
-  schedule_weekdays: number[]; cron_expression: string;
+  schedule_weekdays: number[]; cron_expression: string; timezone: string;
   last_run_at: string | null; next_run_at: string | null; is_running: boolean; last_scan: number | null;
 }
 
