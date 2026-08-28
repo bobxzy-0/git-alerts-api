@@ -1,7 +1,9 @@
 from rest_framework import serializers
+from django.utils import timezone
 from .models import ExcludedRepository, MonitorRule, MonitoringProfile, Scan, ScanRepository, SourceType
 from .services.monitoring_profiles import sync_profile_rules
 from integrations.models import UserIntegration
+from croniter import croniter
 
 class ScanSerializer(serializers.ModelSerializer):
     """Serializer for scan model with user validation"""
@@ -81,9 +83,30 @@ class MonitorRuleSerializer(serializers.ModelSerializer):
         return value
 
     def validate(self, attrs):
-        if attrs.get("source", SourceType.GITHUB) == SourceType.BRAVE and attrs.get("scan_type") != Scan.ScanTypes.SEARCH_REPOS:
+        source = attrs.get("source", getattr(self.instance, "source", SourceType.GITHUB))
+        scan_type = attrs.get("scan_type", getattr(self.instance, "scan_type", None))
+        if source == SourceType.BRAVE and scan_type != Scan.ScanTypes.SEARCH_REPOS:
             raise serializers.ValidationError("Brave Search supports search_repos rules only.")
+        self._validate_schedule(attrs)
         return attrs
+
+    def _validate_schedule(self, attrs):
+        kind = attrs.get("schedule_kind", getattr(self.instance, "schedule_kind", MonitorRule.ScheduleKinds.INTERVAL))
+        weekdays = attrs.get("schedule_weekdays", getattr(self.instance, "schedule_weekdays", []))
+        expression = attrs.get("cron_expression", getattr(self.instance, "cron_expression", ""))
+        if kind == MonitorRule.ScheduleKinds.WEEKLY and (not weekdays or any(not isinstance(day, int) or day not in range(7) for day in weekdays)):
+            raise serializers.ValidationError({"schedule_weekdays": "Select at least one weekday (0=Monday, 6=Sunday)."})
+        if kind == MonitorRule.ScheduleKinds.CRON and not croniter.is_valid(expression):
+            raise serializers.ValidationError({"cron_expression": "Enter a valid five-field cron expression."})
+
+    def update(self, instance, validated_data):
+        scheduling_fields = {"interval_minutes", "schedule_kind", "schedule_time", "schedule_weekdays", "cron_expression", "enabled"}
+        changed = scheduling_fields.intersection(validated_data)
+        instance = super().update(instance, validated_data)
+        if changed and instance.enabled and not instance.is_running:
+            instance.next_run_at = instance.next_occurrence(timezone.now())
+            instance.save(update_fields=["next_run_at", "updated_at"])
+        return instance
 
 
 class MonitoringProfileSerializer(serializers.ModelSerializer):
@@ -99,6 +122,7 @@ class MonitoringProfileSerializer(serializers.ModelSerializer):
         for field in list_fields:
             if field in attrs and (not isinstance(attrs[field], list) or not all(isinstance(item, str) for item in attrs[field])):
                 raise serializers.ValidationError({field: "Must be a list of strings."})
+        MonitorRuleSerializer()._validate_schedule(attrs)
         return attrs
 
     def create(self, validated_data):
