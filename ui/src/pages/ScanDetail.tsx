@@ -105,7 +105,7 @@ export const ScanDetail: React.FC = () => {
         <div className="bg-card border border-border rounded-lg p-8 text-center">
           <p className="text-destructive">Failed to load scan details</p>
           <Link
-            to="/scans"
+            to="/scans?tab=history"
             className="inline-block mt-4 text-primary hover:underline"
           >
             Back to Scans
@@ -121,7 +121,7 @@ export const ScanDetail: React.FC = () => {
         <div>
           <div className="flex items-center gap-3">
             <Link
-              to="/scans"
+              to="/scans?tab=history"
               className="text-muted-foreground hover:text-foreground"
             >
               ← Back
