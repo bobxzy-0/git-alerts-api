@@ -26,4 +26,8 @@ def sync_profile_rules(profile):
             name=f"Profile {profile.pk}: {label} {normalized}"[:255],
             enabled=profile.enabled, source=source, scan_type=scan_type,
             value=normalized, interval_minutes=profile.interval_minutes,
+            schedule_kind=profile.schedule_kind,
+            schedule_time=profile.schedule_time,
+            schedule_weekdays=profile.schedule_weekdays,
+            cron_expression=profile.cron_expression,
         )

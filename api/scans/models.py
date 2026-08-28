@@ -1,6 +1,7 @@
 from django.contrib.auth.models import User
 from django.db import models
 from django.utils import timezone
+from datetime import time
 
 
 class SourceType(models.TextChoices):
@@ -106,6 +107,12 @@ class MonitorRule(models.Model):
         HOURS_12 = 720, "12 hours"
         HOURS_24 = 1440, "24 hours"
 
+    class ScheduleKinds(models.TextChoices):
+        INTERVAL = "INTERVAL", "Fixed interval"
+        DAILY = "DAILY", "Daily"
+        WEEKLY = "WEEKLY", "Weekly"
+        CRON = "CRON", "Cron expression"
+
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="monitor_rules")
     profile = models.ForeignKey("MonitoringProfile", null=True, blank=True, on_delete=models.CASCADE, related_name="rules")
     auto_generated = models.BooleanField(default=False)
@@ -115,6 +122,10 @@ class MonitorRule(models.Model):
     scan_type = models.CharField(max_length=255, choices=Scan.ScanTypes.choices)
     value = models.CharField(max_length=512)
     interval_minutes = models.PositiveIntegerField(choices=Intervals.choices, default=Intervals.HOUR_1)
+    schedule_kind = models.CharField(max_length=16, choices=ScheduleKinds.choices, default=ScheduleKinds.INTERVAL)
+    schedule_time = models.TimeField(default=time(0, 0))
+    schedule_weekdays = models.JSONField(default=list, blank=True)
+    cron_expression = models.CharField(max_length=100, blank=True, default="")
     last_run_at = models.DateTimeField(null=True, blank=True)
     next_run_at = models.DateTimeField(null=True, blank=True, db_index=True)
     is_running = models.BooleanField(default=False, db_index=True)
@@ -127,8 +138,12 @@ class MonitorRule(models.Model):
 
     def save(self, *args, **kwargs):
         if self.enabled and self.next_run_at is None:
-            self.next_run_at = timezone.now()
+            self.next_run_at = self.next_occurrence(timezone.now())
         super().save(*args, **kwargs)
+
+    def next_occurrence(self, after):
+        from .services.scheduling import next_occurrence
+        return next_occurrence(self, after)
 
     def __str__(self):
         return f"{self.name} ({self.source}: {self.value})"
@@ -155,6 +170,10 @@ class MonitoringProfile(models.Model):
     gitlab_groups = models.JSONField(default=list, blank=True)
     custom_keywords = models.JSONField(default=list, blank=True)
     interval_minutes = models.PositiveIntegerField(choices=MonitorRule.Intervals.choices, default=MonitorRule.Intervals.HOUR_1)
+    schedule_kind = models.CharField(max_length=16, choices=MonitorRule.ScheduleKinds.choices, default=MonitorRule.ScheduleKinds.INTERVAL)
+    schedule_time = models.TimeField(default=time(0, 0))
+    schedule_weekdays = models.JSONField(default=list, blank=True)
+    cron_expression = models.CharField(max_length=100, blank=True, default="")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

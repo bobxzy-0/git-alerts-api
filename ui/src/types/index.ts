@@ -171,6 +171,8 @@ export interface MonitorRule {
   id: number; name: string; enabled: boolean; source: string; scan_type: ScanType; value: string;
   profile: number | null; auto_generated: boolean;
   interval_minutes: 15 | 30 | 60 | 120 | 360 | 720 | 1440;
+  schedule_kind: 'INTERVAL' | 'DAILY' | 'WEEKLY' | 'CRON'; schedule_time: string;
+  schedule_weekdays: number[]; cron_expression: string;
   last_run_at: string | null; next_run_at: string | null; is_running: boolean; last_scan: number | null;
 }
 
@@ -193,6 +195,8 @@ export interface MonitoringProfile {
   internal_projects: string[]; internal_domains: string[]; github_orgs: string[];
   gitlab_groups: string[]; custom_keywords: string[];
   interval_minutes: MonitorRule['interval_minutes']; generated_rule_count: number;
+  schedule_kind: MonitorRule['schedule_kind']; schedule_time: string;
+  schedule_weekdays: number[]; cron_expression: string;
 }
 
 export type ScanRepositoryStatus = 'DISCOVERED' | 'EXCLUDED' | 'SKIPPED_RECENT' | 'QUEUED' | 'SCANNING' | 'COMPLETED' | 'DEGRADED' | 'FAILED';

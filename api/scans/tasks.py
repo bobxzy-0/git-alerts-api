@@ -289,6 +289,15 @@ def dispatch_due_monitor_rules():
     MonitorRule.objects.filter(is_running=True, locked_at__lt=stale_before).update(
         is_running=False, locked_at=None
     )
+    # Recover locks left by the previous dispatcher, which claimed a rule
+    # before creating its Scan in a second worker task. New dispatches always
+    # attach last_scan before enqueueing, so this targets legacy orphans only.
+    orphaned_before = now - timedelta(minutes=5)
+    MonitorRule.objects.filter(
+        is_running=True,
+        last_scan__isnull=True,
+        locked_at__lt=orphaned_before,
+    ).update(is_running=False, locked_at=None)
 
     rule_ids = list(
         MonitorRule.objects.filter(
@@ -336,7 +345,7 @@ def dispatch_due_monitor_rules():
                 ])
                 MonitorRule.objects.filter(pk=rule_id).update(
                     last_run_at=completed_at,
-                    next_run_at=completed_at + timedelta(minutes=rule.interval_minutes),
+                    next_run_at=rule.next_occurrence(completed_at),
                     is_running=False,
                     locked_at=None,
                 )
@@ -372,7 +381,7 @@ def run_monitor_rule_task(rule_id, scan_id=None):
         completed_at = timezone.now()
         MonitorRule.objects.filter(pk=rule_id).update(
             last_run_at=completed_at,
-            next_run_at=completed_at + timedelta(minutes=rule.interval_minutes),
+            next_run_at=rule.next_occurrence(completed_at),
             is_running=False,
             locked_at=None,
         )

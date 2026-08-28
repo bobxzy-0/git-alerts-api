@@ -1,4 +1,4 @@
-from datetime import timedelta
+from datetime import time, timedelta
 from unittest.mock import patch
 
 import pytest
@@ -33,6 +33,35 @@ def test_rule_supports_required_intervals():
     assert {choice.value for choice in MonitorRule.Intervals} == {
         15, 30, 60, 120, 360, 720, 1440,
     }
+
+
+@pytest.mark.django_db
+def test_daily_rule_calculates_next_requested_time(user):
+    rule = MonitorRule.objects.create(
+        user=user,
+        name="Daily",
+        scan_type=Scan.ScanTypes.SEARCH_REPOS,
+        value="company",
+        schedule_kind=MonitorRule.ScheduleKinds.DAILY,
+        schedule_time=time(9, 30),
+    )
+    local_next = timezone.localtime(rule.next_run_at)
+    assert (local_next.hour, local_next.minute) == (9, 30)
+
+
+@pytest.mark.django_db
+def test_cron_rule_and_invalid_cron_api(user):
+    client = APIClient()
+    client.force_authenticate(user)
+    payload = {
+        "name": "Cron", "source": "github", "scan_type": "search_repos",
+        "value": "company", "schedule_kind": "CRON",
+        "cron_expression": "0 9 * * 1-5", "interval_minutes": 60,
+    }
+    assert client.post("/monitor-rules/", payload, format="json").status_code == 201
+    payload["name"] = "Bad cron"
+    payload["cron_expression"] = "not a cron"
+    assert client.post("/monitor-rules/", payload, format="json").status_code == 400
 
 
 @pytest.mark.django_db
@@ -73,6 +102,20 @@ def test_dispatch_failure_leaves_failed_scan_and_releases_rule(due_rule):
     assert scan.error_code == "MONITOR_DISPATCH_FAILED"
     assert due_rule.is_running is False
     assert due_rule.last_scan_id == scan.pk
+
+
+@pytest.mark.django_db
+def test_dispatch_recovers_legacy_lock_without_scan(due_rule):
+    MonitorRule.objects.filter(pk=due_rule.pk).update(
+        is_running=True,
+        locked_at=timezone.now() - timedelta(minutes=6),
+        last_scan=None,
+    )
+    with patch("scans.tasks.run_monitor_rule_task.delay") as delay:
+        assert dispatch_due_monitor_rules() == 1
+
+    scan = Scan.objects.get(user=due_rule.user, value=due_rule.value)
+    delay.assert_called_once_with(due_rule.pk, scan.pk)
 
 
 @pytest.mark.django_db
