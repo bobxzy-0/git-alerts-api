@@ -53,10 +53,26 @@ def test_dispatch_claims_same_rule_only_once(due_rule):
         assert dispatch_due_monitor_rules() == 1
         assert dispatch_due_monitor_rules() == 0
 
-    delay.assert_called_once_with(due_rule.pk)
+    scan = Scan.objects.get(user=due_rule.user, value=due_rule.value)
+    delay.assert_called_once_with(due_rule.pk, scan.pk)
     due_rule.refresh_from_db()
     assert due_rule.is_running is True
     assert due_rule.locked_at is not None
+    assert due_rule.last_scan_id == scan.pk
+
+
+@pytest.mark.django_db
+def test_dispatch_failure_leaves_failed_scan_and_releases_rule(due_rule):
+    with patch("scans.tasks.run_monitor_rule_task.delay", side_effect=RuntimeError("broker down")):
+        assert dispatch_due_monitor_rules() == 0
+
+    scan = Scan.objects.get(user=due_rule.user, value=due_rule.value)
+    due_rule.refresh_from_db()
+    assert scan.execution_status == Scan.ExecutionStatus.FAILED
+    assert scan.result_status == Scan.ResultStatus.FAILED_INTERNAL
+    assert scan.error_code == "MONITOR_DISPATCH_FAILED"
+    assert due_rule.is_running is False
+    assert due_rule.last_scan_id == scan.pk
 
 
 @pytest.mark.django_db
