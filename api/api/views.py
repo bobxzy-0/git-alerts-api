@@ -6,8 +6,9 @@ class HomeView(APIView):
     
     def get(self, request):
         """Handle GET request and return welcome message"""
+        from core.models import SystemSettings
         return Response({
-            "name": "SourceWatch API",
+            "name": f"{SystemSettings.get_settings().brand_name} API",
             "version": "1.0.0",
             "status" : "healthy",
         })

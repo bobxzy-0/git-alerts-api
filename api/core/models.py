@@ -29,6 +29,14 @@ class RepoScanHistory(models.Model):
 class SystemSettings(models.Model):
     """System wide scanning configuration"""
 
+    brand_name = models.CharField(max_length=120, default="万联源码泄漏监控")
+    login_title = models.CharField(max_length=160, default="登录万联源码泄漏监控")
+    home_title = models.CharField(max_length=160, default="万联源码泄漏监控")
+    home_description = models.CharField(
+        max_length=500,
+        default="持续监控公开代码平台，发现源码与敏感信息泄漏风险",
+    )
+
     skip_recent_days = models.IntegerField(
         default=15,
         help_text="Skip repository scanned within this many days"

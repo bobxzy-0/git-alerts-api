@@ -9,6 +9,7 @@ from django.core.mail import get_connection, send_mail
 from django.utils import timezone
 
 from findings.models import Finding, FindingOccurrence
+from core.models import SystemSettings
 from .models import AlertDelivery, EmailConfiguration, NotificationChannel
 
 
@@ -84,7 +85,7 @@ def send_alert_delivery(delivery_id):
                 )
                 from_email = email_config.from_email
             send_mail(
-                f"[{finding.severity}] SourceWatch finding: {finding.type}",
+                f"[{finding.severity}] {SystemSettings.get_settings().brand_name}: {finding.type}",
                 "\n".join(f"{key}: {value}" for key, value in payload.items()),
                 from_email,
                 [delivery.channel.target],

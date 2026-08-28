@@ -1,16 +1,18 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
+import { useBranding } from '@/hooks/useBranding';
 
 export const Home: React.FC = () => {
   const { isAuthenticated } = useAuth();
+  const branding = useBranding();
 
   return (
     <div className="flex flex-col items-center justify-center min-h-[calc(100vh-200px)]">
       <div className="text-center space-y-6 max-w-3xl">
-        <h1 className="text-5xl font-bold text-primary">Source Leak Monitor</h1>
+        <h1 className="text-5xl font-bold text-primary">{branding.home_title}</h1>
         <p className="text-xl text-muted-foreground">
-          Automated security scanning for GitHub repositories
+          {branding.home_description}
         </p>
         <p className="text-lg text-foreground">
           Detect exposed secrets and sensitive information in your code using TruffleHog

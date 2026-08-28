@@ -1,7 +1,7 @@
 from rest_framework import generics
 from .models import CodeFingerprint, DetectionPattern, SimilarityMatch, SourceHealth, SystemSettings
-from .serializers import CodeFingerprintSerializer, DetectionPatternSerializer, SimilarityMatchSerializer, SourceHealthSerializer, SystemSettingsSerializer
-from rest_framework.permissions import IsAuthenticated
+from .serializers import BrandingSerializer, CodeFingerprintSerializer, DetectionPatternSerializer, SimilarityMatchSerializer, SourceHealthSerializer, SystemSettingsSerializer
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from django.db.models import Count
@@ -17,6 +17,14 @@ class SystemSettingsView(generics.RetrieveUpdateAPIView):
     """Get or update system-wide settings"""
     serializer_class = SystemSettingsSerializer
     permission_classes = [IsAuthenticated]
+
+    def get_object(self):
+        return SystemSettings.get_settings()
+
+
+class BrandingView(generics.RetrieveAPIView):
+    serializer_class = BrandingSerializer
+    permission_classes = [AllowAny]
 
     def get_object(self):
         return SystemSettings.get_settings()
