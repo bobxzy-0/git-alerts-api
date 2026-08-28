@@ -14,12 +14,33 @@ def response(status=200, payload=None):
     return result
 
 
-@pytest.mark.parametrize(("status", "error"), [(401, SourceAuthError), (403, SourceAuthError), (429, SourceRateLimitError), (400, SourceResponseError)])
+@pytest.mark.parametrize(("status", "error"), [(401, SourceAuthError), (403, SourceAuthError), (429, SourceRateLimitError)])
 def test_brave_http_failures_are_classified_before_json(status, error):
     result = response(status)
     with patch("requests.get", return_value=result), pytest.raises(error):
         BraveSearchClient("key").search("acme")
     result.json.assert_not_called()
+
+
+def test_brave_sends_proxy_safe_cache_headers():
+    result = response(200, {"web": {"results": []}})
+    with patch("requests.get", return_value=result) as request:
+        BraveSearchClient("key").search("site:github.com", count=1)
+
+    headers = request.call_args.kwargs["headers"]
+    assert headers["Cache-Control"] == "no-cache"
+    assert headers["Accept-Encoding"] == "gzip"
+
+
+def test_brave_422_includes_validation_detail():
+    result = response(422, {
+        "error": {
+            "detail": "Unable to validate request parameter(s)",
+            "meta": {"errors": [{"loc": ["header", "cache-control"], "msg": "Input should be 'no-cache'"}]},
+        }
+    })
+    with patch("requests.get", return_value=result), pytest.raises(SourceResponseError, match="cache-control"):
+        BraveSearchClient("key").search("acme")
 
 
 def test_brave_adapter_extracts_supported_repositories_and_deduplicates():

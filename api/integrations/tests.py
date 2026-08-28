@@ -6,6 +6,7 @@ from rest_framework.test import APIClient
 
 from integrations.models import UserIntegration
 from integrations.tasks import run_validation_task
+from core.models import SourceHealth
 
 
 @pytest.mark.django_db
@@ -26,6 +27,9 @@ def test_gitlab_integration_validation_marks_connection_healthy():
     assert integration.status == UserIntegration.Status.CONNECTED
     assert integration.error_message == ""
     assert integration.last_validated_at is not None
+    health = SourceHealth.objects.get(user=user, source="gitlab")
+    assert health.status == SourceHealth.Status.HEALTHY
+    assert health.last_success_at is not None
 
 
 @pytest.mark.django_db
@@ -45,6 +49,9 @@ def test_gitlab_integration_validation_preserves_failure_reason():
     integration.refresh_from_db()
     assert integration.status == UserIntegration.Status.FAILED
     assert integration.error_message == "bad token"
+    health = SourceHealth.objects.get(user=user, source="gitlab")
+    assert health.status == SourceHealth.Status.WARNING
+    assert health.error_message == "bad token"
 
 
 @pytest.mark.django_db

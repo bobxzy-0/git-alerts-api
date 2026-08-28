@@ -167,6 +167,7 @@ export interface UpdateSystemSettingsRequest {
 
 export interface SourceHealth {
   id: number; source: string; status: MonitoringStatus;
+  configured: boolean; integration_status: IntegrationStatus | 'not_configured';
   last_checked_at: string | null; last_success_at: string | null; last_failure_at: string | null;
   result_count: number; new_findings: number; rate_limit_remaining: number | null;
   error_code: string; error_message: string;

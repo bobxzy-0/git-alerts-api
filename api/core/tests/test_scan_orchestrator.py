@@ -5,6 +5,7 @@ from django.contrib.auth.models import User
 
 from core.services.scan_orchestrator import ScanOrchestrator
 from core.sources import RepositoryTarget
+from findings.models import Finding, FindingOccurrence
 from scans.models import RepositoryScanQueue, Scan
 
 
@@ -27,7 +28,8 @@ def test_orchestrator_counts_repository_failures_without_aborting_scan():
     assert orchestrator.repository_successes == 1
     assert orchestrator.repository_failures == 1
     scan.refresh_from_db()
-    assert scan.total_findings == 0
+    assert scan.total_findings == 2
+    assert set(Finding.objects.values_list("type", flat=True)) == {"Repository Match"}
 
 
 @pytest.mark.django_db
@@ -47,6 +49,8 @@ def test_brave_discovery_enqueues_repositories_without_scanning_search_results()
     assert item.status == RepositoryScanQueue.Status.QUEUED
     delay.assert_called_once_with(item.pk)
     detector.scan_repository.assert_not_called()
+    assert Finding.objects.get().type == "Repository Match"
+    assert Finding.objects.get().severity == Finding.Severity.INFO
 
 
 @pytest.mark.django_db
@@ -64,3 +68,20 @@ def test_one_detection_engine_failure_keeps_other_engine_findings():
         orchestrator.run()
     assert orchestrator.repository_successes == 1
     assert orchestrator.repository_failures == 1
+
+
+@pytest.mark.django_db
+def test_repository_matches_are_deduplicated_across_scans():
+    user = User.objects.create_user(username="repository-match-user")
+    adapter = Mock()
+    adapter.search.return_value = [RepositoryTarget("github", "https://github.com/acme/api", "acme", "api")]
+    detector = Mock()
+    detector.scan_repository.return_value = []
+    for value in ["acme", "acme"]:
+        scan = Scan.objects.create(user=user, type=Scan.ScanTypes.SEARCH_REPOS, value=value)
+        with patch.object(ScanOrchestrator, "is_recently_scanned", return_value=False):
+            ScanOrchestrator(scan, adapter, detector).run()
+
+    finding = Finding.objects.get(type="Repository Match")
+    assert finding.occurrence_count == 2
+    assert FindingOccurrence.objects.filter(finding=finding).count() == 2

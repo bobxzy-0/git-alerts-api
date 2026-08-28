@@ -13,7 +13,14 @@ class BraveSearchClient:
         try:
             response = requests.get(
                 self.url,
-                headers={"X-Subscription-Token": self.api_key, "Accept": "application/json"},
+                headers={
+                    "X-Subscription-Token": self.api_key,
+                    "Accept": "application/json",
+                    "Accept-Encoding": "gzip",
+                    # Brave validates this header strictly. Explicitly setting it also
+                    # prevents HTTP proxies from injecting an unsupported cache policy.
+                    "Cache-Control": "no-cache",
+                },
                 params={"q": query, "count": min(count, 20), "offset": offset},
                 timeout=(5, 30),
                 proxies=self.proxies,
@@ -27,7 +34,9 @@ class BraveSearchClient:
         if response.status_code >= 500:
             raise SourceNetworkError(f"Brave Search service error: HTTP {response.status_code}")
         if not response.ok:
-            raise SourceResponseError(f"Brave Search API error: HTTP {response.status_code}")
+            detail = self._error_detail(response)
+            suffix = f" ({detail})" if detail else ""
+            raise SourceResponseError(f"Brave Search API error: HTTP {response.status_code}{suffix}")
         try:
             data = response.json()
         except (requests.exceptions.JSONDecodeError, ValueError) as exc:
@@ -38,3 +47,25 @@ class BraveSearchClient:
         if not isinstance(results, list):
             raise SourceResponseError("Expected Brave web results to be a list")
         return results, response.headers
+
+    @staticmethod
+    def _error_detail(response) -> str:
+        """Return a short Brave validation message without exposing request secrets."""
+        try:
+            payload = response.json()
+        except (requests.exceptions.JSONDecodeError, ValueError):
+            return ""
+        if not isinstance(payload, dict):
+            return ""
+        error = payload.get("error")
+        if not isinstance(error, dict):
+            return ""
+        detail = str(error.get("detail") or "").strip()
+        validation_errors = error.get("meta", {}).get("errors", []) if isinstance(error.get("meta"), dict) else []
+        if validation_errors and isinstance(validation_errors[0], dict):
+            item = validation_errors[0]
+            location = ".".join(str(part) for part in item.get("loc", []))
+            message = str(item.get("msg") or "").strip()
+            if location and message:
+                detail = f"{detail}: {location} {message}" if detail else f"{location} {message}"
+        return detail[:500]

@@ -7,7 +7,7 @@ from django.utils import timezone
 from .serializers import ExcludedRepositorySerializer, MonitorRuleSerializer, MonitoringProfileSerializer, ScanRepositorySerializer, ScanSerializer
 from .models import ExcludedRepository, MonitorRule, MonitoringProfile, Scan, ScanRepository
 from findings.serializers import FindingSerializer
-from .tasks import run_monitor_rule_task, run_scan_task
+from .tasks import dispatch_due_monitor_rules, run_monitor_rule_task, run_scan_task
 
 logger = getLogger(__name__)
 
@@ -78,7 +78,9 @@ class MonitorRuleView(generics.ListCreateAPIView):
         return MonitorRule.objects.filter(user=self.request.user)
 
     def perform_create(self, serializer):
-        serializer.save(user=self.request.user)
+        rule = serializer.save(user=self.request.user)
+        if rule.enabled and rule.next_run_at and rule.next_run_at <= timezone.now():
+            dispatch_due_monitor_rules()
 
 
 class MonitorRuleDetailsView(generics.RetrieveUpdateDestroyAPIView):

@@ -13,10 +13,24 @@ class SystemSettingsSerializer(serializers.ModelSerializer):
 
 
 class SourceHealthSerializer(serializers.ModelSerializer):
+    integration_status = serializers.SerializerMethodField()
+    configured = serializers.SerializerMethodField()
+
     class Meta:
         model = SourceHealth
         fields = "__all__"
         read_only_fields = [field.name for field in SourceHealth._meta.fields]
+
+    def _integration(self, obj):
+        from integrations.models import UserIntegration
+        return UserIntegration.objects.filter(user=obj.user, provider=obj.source).first()
+
+    def get_integration_status(self, obj):
+        integration = self._integration(obj)
+        return integration.status if integration else "not_configured"
+
+    def get_configured(self, obj):
+        return self._integration(obj) is not None
 
 
 class DetectionPatternSerializer(serializers.ModelSerializer):
