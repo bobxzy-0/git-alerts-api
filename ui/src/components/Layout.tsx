@@ -43,12 +43,6 @@ export const Layout: React.FC = () => {
                   Findings
                 </Link>
                 <Link
-                  to="/source-health"
-                  className="text-sm font-medium text-foreground hover:text-primary transition-colors"
-                >
-                  Source Health
-                </Link>
-                <Link
                   to="/notifications"
                   className="text-sm font-medium text-foreground hover:text-primary transition-colors"
                 >
