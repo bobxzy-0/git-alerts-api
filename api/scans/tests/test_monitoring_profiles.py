@@ -24,6 +24,22 @@ def test_profile_generates_platform_and_search_rules():
 
 
 @pytest.mark.django_db
+def test_profile_schedule_is_copied_to_generated_rules():
+    user = User.objects.create_user(username="profile-schedule")
+    client = APIClient()
+    client.force_authenticate(user)
+    response = client.post("/monitoring-profiles/", {
+        "name": "Weekdays", "github_orgs": ["acme"],
+        "schedule_kind": "WEEKLY", "schedule_time": "08:15",
+        "schedule_weekdays": [0, 2, 4],
+    }, format="json")
+    assert response.status_code == 201
+    rule = MonitoringProfile.objects.get(user=user).rules.get()
+    assert rule.schedule_kind == MonitorRule.ScheduleKinds.WEEKLY
+    assert rule.schedule_weekdays == [0, 2, 4]
+
+
+@pytest.mark.django_db
 def test_profile_update_replaces_generated_rules_without_duplicates():
     user = User.objects.create_user(username="profile-update")
     profile = MonitoringProfile.objects.create(user=user, name="Acme", github_orgs=["old"])
