@@ -24,7 +24,7 @@ export const Layout: React.FC = () => {
                 GitAlerts
               </Link>
               <nav className="flex flex-wrap items-center gap-x-4 gap-y-2">
-                <Link to="/monitoring-profiles" className="text-sm font-medium text-foreground hover:text-primary transition-colors">Monitoring Profiles</Link>
+                <Link to="/monitoring" className="text-sm font-medium text-foreground hover:text-primary transition-colors">Monitoring</Link>
                 <Link to="/excluded-repositories" className="text-sm font-medium text-foreground hover:text-primary transition-colors">Excluded Repositories</Link>
                 <Link
                   to="/dashboard"
@@ -43,12 +43,6 @@ export const Layout: React.FC = () => {
                   className="text-sm font-medium text-foreground hover:text-primary transition-colors"
                 >
                   Findings
-                </Link>
-                <Link
-                  to="/monitor-rules"
-                  className="text-sm font-medium text-foreground hover:text-primary transition-colors"
-                >
-                  Monitor Rules
                 </Link>
                 <Link
                   to="/source-health"
