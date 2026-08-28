@@ -35,6 +35,10 @@ export const Findings: React.FC = () => {
   const { data: findings = [], isLoading, error } = useQuery({
     queryKey: ['findings', filters],
     queryFn: () => findingsApi.list(filters),
+    refetchInterval: 5_000,
+    refetchIntervalInBackground: false,
+    refetchOnWindowFocus: true,
+    staleTime: 0,
   });
 
   const deleteFindingMutation = useMutation({
