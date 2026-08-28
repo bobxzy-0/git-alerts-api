@@ -16,8 +16,8 @@ from .base import (
 class GitHubAdapter(BaseSourceAdapter):
     source = SourceType.GITHUB
 
-    def __init__(self, token: str):
-        self.client = GitHubClient(token=token)
+    def __init__(self, token: str, proxy_url: str = ""):
+        self.client = GitHubClient(token=token, proxy_url=proxy_url)
 
     def health_check(self) -> AdapterHealth:
         data = self._call(self.client.get_rate_limit)

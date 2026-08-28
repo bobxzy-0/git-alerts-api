@@ -10,8 +10,8 @@ from .search_engine import SearchEngineAdapter
 class BraveSearchAdapter(SearchEngineAdapter):
     source = SourceType.BRAVE
 
-    def __init__(self, token: str):
-        self.client = BraveSearchClient(token)
+    def __init__(self, token: str, proxy_url: str = ""):
+        self.client = BraveSearchClient(token, proxy_url=proxy_url)
 
     def health_check(self):
         _, headers = self.client.search("site:github.com", count=1)

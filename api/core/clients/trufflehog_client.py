@@ -1,5 +1,6 @@
 import subprocess
 import json
+import os
 from logging import getLogger
 
 logger = getLogger(__name__)
@@ -8,8 +9,8 @@ logger = getLogger(__name__)
 class TruffleHogClient:
     """TruffleHog client for scanning secrets in the repositories"""
 
-    def __init__(self):
-        pass
+    def __init__(self, proxy_url: str = ""):
+        self.proxy_url = proxy_url
 
     def scan_repository(
         self, repository_url: str, only_verified: bool = True
@@ -34,8 +35,11 @@ class TruffleHogClient:
             if only_verified:
                 tf_command.append("--only-verified")
 
+            proxy_env = os.environ.copy()
+            if self.proxy_url:
+                proxy_env.update({"HTTP_PROXY": self.proxy_url, "HTTPS_PROXY": self.proxy_url, "ALL_PROXY": self.proxy_url})
             tf_command_output = subprocess.run(
-                tf_command, check=True, timeout=600, capture_output=True, text=True
+                tf_command, check=True, timeout=600, capture_output=True, text=True, env=proxy_env
             )
 
             for line in tf_command_output.stdout.splitlines():

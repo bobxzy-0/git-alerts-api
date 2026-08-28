@@ -11,14 +11,17 @@ from core.sources.base import (
 class GiteeClient:
     """Gitee API v5 client for supported discovery operations."""
 
-    def __init__(self, token: str, base_url: str = "https://gitee.com/api/v5"):
+    def __init__(self, token: str, base_url: str = "https://gitee.com/api/v5", proxy_url: str = ""):
         self.token = token
         self.base_url = base_url.rstrip("/")
+        self.proxies = {"http": proxy_url, "https": proxy_url} if proxy_url else None
 
     def _request(self, method: str, url: str, **kwargs):
         params = kwargs.pop("params", None) or {}
         params.setdefault("access_token", self.token)
         kwargs.setdefault("timeout", (5, 30))
+        if self.proxies:
+            kwargs.setdefault("proxies", self.proxies)
         try:
             response = requests.request(method, url, params=params, **kwargs)
         except requests.RequestException as exc:

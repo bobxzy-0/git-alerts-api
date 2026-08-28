@@ -8,10 +8,14 @@ from .base import BaseDetectionEngine, DetectionEngineError
 class GitleaksEngine(BaseDetectionEngine):
     name = "gitleaks"
 
+    def __init__(self, proxy_url: str = ""):
+        self.proxy_url = proxy_url
+
     def scan_repository(self, repository_url, *, only_verified=True):
         with tempfile.TemporaryDirectory(prefix="gitalerts-gitleaks-") as directory:
             try:
-                subprocess.run(["git", "clone", "--quiet", "--mirror", repository_url, directory], check=True, timeout=300, capture_output=True, text=True)
+                command = ["git"] + (["-c", f"http.proxy={self.proxy_url}"] if self.proxy_url else []) + ["clone", "--quiet", "--mirror", repository_url, directory]
+                subprocess.run(command, check=True, timeout=300, capture_output=True, text=True)
                 result = subprocess.run(
                     ["gitleaks", "git", directory, "--report-format", "json", "--report-path", "-", "--exit-code", "0"],
                     check=True, timeout=600, capture_output=True, text=True,

@@ -96,7 +96,7 @@ def test_gitlab_zero_results_are_healthy():
         run_scan_task(scan.pk)
 
     scan.refresh_from_db()
-    registry.assert_called_once_with("gitlab", token="gitlab-token")
+    registry.assert_called_once_with("gitlab", token="gitlab-token", proxy_url="")
     assert scan.execution_status == Scan.ExecutionStatus.SUCCESS
     assert scan.monitoring_status == Scan.MonitoringStatus.HEALTHY
     assert scan.result_status == Scan.ResultStatus.HEALTHY_TARGET_ABSENT

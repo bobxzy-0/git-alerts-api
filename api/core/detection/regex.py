@@ -17,14 +17,16 @@ DEFAULT_PATTERNS = [
 class CustomRegexEngine(BaseDetectionEngine):
     name = "custom_regex"
 
-    def __init__(self, patterns=None):
+    def __init__(self, patterns=None, proxy_url: str = ""):
         self.patterns = DEFAULT_PATTERNS + list(patterns or [])
+        self.proxy_url = proxy_url
 
     def scan_repository(self, repository_url, *, only_verified=True):
         findings = []
         with tempfile.TemporaryDirectory(prefix="gitalerts-regex-") as directory:
             try:
-                subprocess.run(["git", "clone", "--quiet", "--depth", "1", repository_url, directory], check=True, timeout=300, capture_output=True, text=True)
+                command = ["git"] + (["-c", f"http.proxy={self.proxy_url}"] if self.proxy_url else []) + ["clone", "--quiet", "--depth", "1", repository_url, directory]
+                subprocess.run(command, check=True, timeout=300, capture_output=True, text=True)
             except subprocess.SubprocessError as exc:
                 raise DetectionEngineError(f"Regex engine clone failed: {exc}") from exc
             root = Path(directory)

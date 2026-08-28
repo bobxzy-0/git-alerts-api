@@ -86,7 +86,8 @@ def run_scan_task(scan_id):
         logger.info(
             f"event=scan_preflight_validation scan_id={scan_id} integration_id={integration.id}"
         )
-        source_adapter = get_source_adapter(scan.source, token=source_token)
+        proxy_url = integration.get_proxy_url()
+        source_adapter = get_source_adapter(scan.source, token=source_token, proxy_url=proxy_url)
         adapter_health = source_adapter.health_check()
         integration.status = UserIntegration.Status.CONNECTED
         integration.error_message = ""
@@ -107,7 +108,7 @@ def run_scan_task(scan_id):
         orchestrator = ScanOrchestrator(
             scan=scan,
             source_adapter=source_adapter,
-            detection_engines=get_detection_engines(scan.user),
+            detection_engines=get_detection_engines(scan.user, proxy_url=proxy_url),
         )
 
         orchestrator.run()

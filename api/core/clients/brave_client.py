@@ -4,9 +4,10 @@ from core.sources.base import SourceAuthError, SourceNetworkError, SourceRateLim
 
 
 class BraveSearchClient:
-    def __init__(self, api_key: str):
+    def __init__(self, api_key: str, proxy_url: str = ""):
         self.api_key = api_key
         self.url = "https://api.search.brave.com/res/v1/web/search"
+        self.proxies = {"http": proxy_url, "https": proxy_url} if proxy_url else None
 
     def search(self, query: str, *, count: int = 20, offset: int = 0):
         try:
@@ -15,6 +16,7 @@ class BraveSearchClient:
                 headers={"X-Subscription-Token": self.api_key, "Accept": "application/json"},
                 params={"q": query, "count": min(count, 20), "offset": offset},
                 timeout=(5, 30),
+                proxies=self.proxies,
             )
         except requests.RequestException as exc:
             raise SourceNetworkError(f"Brave Search network error: {exc}") from exc

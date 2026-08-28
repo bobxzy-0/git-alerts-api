@@ -22,7 +22,7 @@ def run_validation_task(integration_id):
         integration.save()
 
         if integration.provider == "github":
-            is_valid, error_message = validate_github_integration(integration.get_token())
+            is_valid, error_message = validate_source_integration("github", integration.get_token(), integration.get_proxy_url())
 
             if is_valid:
                 integration.status = UserIntegration.Status.CONNECTED
@@ -32,21 +32,21 @@ def run_validation_task(integration_id):
                 integration.error_message = error_message
 
         elif integration.provider == "gitlab":
-            is_valid, error_message = validate_gitlab_integration(integration.get_token())
+            is_valid, error_message = validate_source_integration("gitlab", integration.get_token(), integration.get_proxy_url())
             integration.status = (
                 UserIntegration.Status.CONNECTED if is_valid else UserIntegration.Status.FAILED
             )
             integration.error_message = error_message
 
         elif integration.provider == "gitee":
-            is_valid, error_message = validate_source_integration("gitee", integration.get_token())
+            is_valid, error_message = validate_source_integration("gitee", integration.get_token(), integration.get_proxy_url())
             integration.status = (
                 UserIntegration.Status.CONNECTED if is_valid else UserIntegration.Status.FAILED
             )
             integration.error_message = error_message
 
         elif integration.provider == "brave":
-            is_valid, error_message = validate_source_integration("brave", integration.get_token())
+            is_valid, error_message = validate_source_integration("brave", integration.get_token(), integration.get_proxy_url())
             integration.status = UserIntegration.Status.CONNECTED if is_valid else UserIntegration.Status.FAILED
             integration.error_message = error_message
 
@@ -135,12 +135,12 @@ def validate_gitlab_integration(gitlab_token: str) -> tuple[bool, str]:
         return False, f"Validation error: {exc}"
 
 
-def validate_source_integration(source: str, token: str) -> tuple[bool, str]:
+def validate_source_integration(source: str, token: str, proxy_url: str = "") -> tuple[bool, str]:
     from core.sources import get_source_adapter
     from core.sources.base import SourceAuthError, SourceNetworkError, SourceRateLimitError
 
     try:
-        get_source_adapter(source, token=token).health_check()
+        get_source_adapter(source, token=token, proxy_url=proxy_url).health_check()
         return True, ""
     except SourceAuthError as exc:
         return False, str(exc)

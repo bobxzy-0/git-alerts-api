@@ -9,8 +9,8 @@ from .base import AdapterHealth, BaseSourceAdapter, RepositoryTarget, SourceNotF
 class GiteeAdapter(BaseSourceAdapter):
     source = SourceType.GITEE
 
-    def __init__(self, token: str):
-        self.client = GiteeClient(token)
+    def __init__(self, token: str, proxy_url: str = ""):
+        self.client = GiteeClient(token, proxy_url=proxy_url)
 
     def health_check(self):
         self.client.get_current_user()

@@ -9,8 +9,8 @@ from .base import AdapterHealth, BaseSourceAdapter, RepositoryTarget, SourceNotF
 class GitLabAdapter(BaseSourceAdapter):
     source = SourceType.GITLAB
 
-    def __init__(self, token: str):
-        self.client = GitLabClient(token=token)
+    def __init__(self, token: str, proxy_url: str = ""):
+        self.client = GitLabClient(token=token, proxy_url=proxy_url)
 
     def health_check(self) -> AdapterHealth:
         self.client.get_current_user()

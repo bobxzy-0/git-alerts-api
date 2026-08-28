@@ -135,6 +135,8 @@ export interface UserIntegration {
   id: number;
   user: string;
   provider: IntegrationType;
+  proxy_configured: boolean;
+  proxy_scheme: string;
   status: IntegrationStatus;
   last_validated_at: string | null;
   error_message: string;
@@ -145,6 +147,7 @@ export interface UserIntegration {
 export interface CreateIntegrationRequest {
   provider: IntegrationType;
   token: string;
+  proxy_url?: string;
 }
 
 // System Settings Types
