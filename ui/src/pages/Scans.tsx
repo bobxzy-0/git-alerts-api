@@ -425,7 +425,7 @@ export const Scans: React.FC<{ embedded?: boolean }> = ({ embedded = false }) =>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm">
                       <Link
-                        to={`/findings?scan=${scan.id}`}
+                        to={`/findings?scan=${scan.id}&from=scans&returnTo=${encodeURIComponent(`/scans?${searchParams.toString() || 'tab=history'}`)}`}
                         className="text-primary hover:text-primary/80 font-medium"
                       >
                         View Findings
