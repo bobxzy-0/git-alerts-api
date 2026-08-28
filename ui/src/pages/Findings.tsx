@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useSearchParams } from 'react-router-dom';
-import { findingsApi } from '@/services/api';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { findingsApi, scansApi } from '@/services/api';
 
 export const Findings: React.FC = () => {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [selectedFinding, setSelectedFinding] = useState<any>(null);
   const [showFilters, setShowFilters] = useState(false);
@@ -31,6 +32,19 @@ export const Findings: React.FC = () => {
     validated: searchParams.get('validated') ? searchParams.get('validated') === 'true' : undefined,
     created_at: searchParams.get('created_at') || undefined,
   };
+  const fromScans = searchParams.get('from') === 'scans';
+  const returnTo = searchParams.get('returnTo') || '/scans?tab=history';
+  const sourceScanId = fromScans && searchParams.get('scan') ? Number(searchParams.get('scan')) : undefined;
+
+  const { data: sourceScan } = useQuery({
+    queryKey: ['scan', sourceScanId],
+    queryFn: () => scansApi.get(sourceScanId!),
+    enabled: sourceScanId !== undefined,
+    refetchInterval: 5_000,
+    refetchIntervalInBackground: false,
+    refetchOnWindowFocus: true,
+    staleTime: 0,
+  });
 
   const { data: findings = [], isLoading, error } = useQuery({
     queryKey: ['findings', filters],
@@ -86,11 +100,13 @@ export const Findings: React.FC = () => {
 
   const handleApplyFilters = () => {
     const newParams = new URLSearchParams();
+    if (fromScans) { newParams.set('from', 'scans'); newParams.set('returnTo', returnTo); }
     Object.entries(filterForm).forEach(([key, value]) => {
       if (value) {
         newParams.set(key, value);
       }
     });
+    if (sourceScanId !== undefined) newParams.set('scan', String(sourceScanId));
     setSearchParams(newParams);
     setShowFilters(false);
   };
@@ -105,7 +121,7 @@ export const Findings: React.FC = () => {
       validated: '',
       created_at: '',
     });
-    setSearchParams(new URLSearchParams());
+    setSearchParams(fromScans && sourceScanId !== undefined ? new URLSearchParams({ from: 'scans', returnTo, scan: String(sourceScanId) }) : new URLSearchParams());
   };
 
   const handleRemoveFilter = (key: string) => {
@@ -154,6 +170,7 @@ export const Findings: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Header */}
+      {fromScans && <div className="rounded-xl border bg-card p-4 shadow-sm"><button onClick={() => navigate(returnTo)} className="text-sm font-medium text-primary hover:underline">← 返回任务记录</button><div className="mt-3 flex flex-wrap items-center justify-between gap-3"><div><h2 className="font-semibold">Scan #{sourceScanId}</h2><p className="mt-1 text-sm text-muted-foreground">{sourceScan ? `${sourceScan.source} · ${sourceScan.value}` : '正在加载扫描信息…'}</p></div><div className="text-right"><p className="text-2xl font-bold">{findings.length}</p><p className="text-xs text-muted-foreground">Findings</p></div></div></div>}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-foreground">Findings</h1>
@@ -194,13 +211,13 @@ export const Findings: React.FC = () => {
               >
                 <span className="font-medium">{key}:</span>
                 <span>{value.toString()}</span>
-                <button
+                {!(fromScans && key === 'scan') && <button
                   onClick={() => handleRemoveFilter(key)}
                   className="hover:text-primary/80 font-bold"
                   title={`Remove ${key} filter`}
                 >
                   ×
-                </button>
+                </button>}
               </span>
             ) : null
           )}
