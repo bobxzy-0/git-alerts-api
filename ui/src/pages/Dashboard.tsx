@@ -2,6 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { dashboardApi } from '@/services/api';
+import { LiveIndicator } from '@/components/LiveIndicator';
 
 const healthStyle: Record<string, string> = {
   HEALTHY: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
@@ -19,14 +20,14 @@ const severityStyle: Record<string, string> = {
 const statusDot: Record<string, string> = { SUCCESS:'bg-emerald-500', DEGRADED:'bg-amber-500', FAILED:'bg-red-500', RUNNING:'bg-blue-500', QUEUED:'bg-slate-400' };
 
 export const Dashboard: React.FC = () => {
-  const { data, isLoading, error } = useQuery({ queryKey:['dashboard'], queryFn:dashboardApi.get, refetchInterval:30_000 });
+  const { data, isLoading, error } = useQuery({ queryKey:['dashboard'], queryFn:dashboardApi.get, refetchInterval:5_000, refetchIntervalInBackground:false, refetchOnWindowFocus:true, staleTime:0 });
   if (isLoading) return <div className="animate-pulse space-y-4"><div className="h-10 w-52 rounded bg-muted"/><div className="h-28 rounded-xl bg-muted"/><div className="h-64 rounded-xl bg-muted"/></div>;
   if (error || !data) return <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-6 text-destructive">Failed to load dashboard</div>;
   const maxTrend = Math.max(1, ...data.scan_trend.map(item => item.count));
   const totalFindings = Object.values(data.severity_counts).reduce((sum, count) => sum + count, 0);
 
   return <div className="space-y-7">
-    <header className="flex flex-wrap items-end justify-between gap-4"><div><p className="text-sm font-medium text-primary">Security overview</p><h1 className="mt-1 text-3xl font-bold">Dashboard</h1><p className="mt-1 text-sm text-muted-foreground">持续代码与敏感信息泄漏监控概览</p></div><div className="flex gap-2"><Link to="/scans?tab=monitors" className="rounded-lg border px-4 py-2 text-sm font-medium hover:bg-muted">Monitoring Plans</Link><Link to="/scans/new" className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground">New Scan</Link></div></header>
+    <header className="flex flex-wrap items-end justify-between gap-4"><div><p className="text-sm font-medium text-primary">Security overview</p><div className="mt-1 flex items-center gap-3"><h1 className="text-3xl font-bold">Dashboard</h1><LiveIndicator /></div><p className="mt-1 text-sm text-muted-foreground">持续代码与敏感信息泄漏监控概览</p></div><div className="flex gap-2"><Link to="/scans?tab=monitors" className="rounded-lg border px-4 py-2 text-sm font-medium hover:bg-muted">Monitoring Plans</Link><Link to="/scans/new" className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground">New Scan</Link></div></header>
 
     <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
       <div className="rounded-xl border bg-card p-5 shadow-sm"><p className="text-sm text-muted-foreground">Overall Health</p><div className="mt-4 flex items-center justify-between"><span className={`rounded-full px-3 py-1 text-sm font-semibold ${healthStyle[data.overall_health]}`}>{data.overall_health}</span><span className="text-xs text-muted-foreground">{data.source_health.length} sources</span></div></div>
