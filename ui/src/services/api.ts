@@ -49,6 +49,7 @@ export const monitorRulesApi = {
 export const notificationChannelsApi = {
   list: async (): Promise<NotificationChannel[]> => (await apiClient.get<NotificationChannel[]>('/notifications/channels/')).data,
   create: async (data: Pick<NotificationChannel,'name'|'channel_type'|'target'|'enabled'>): Promise<NotificationChannel> => (await apiClient.post<NotificationChannel>('/notifications/channels/',data)).data,
+  update: async (id:number, data:Partial<NotificationChannel>): Promise<NotificationChannel> => (await apiClient.patch<NotificationChannel>(`/notifications/channels/${id}/`,data)).data,
   delete: async (id:number): Promise<void> => { await apiClient.delete(`/notifications/channels/${id}/`); },
 };
 

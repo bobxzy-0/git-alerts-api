@@ -17,7 +17,7 @@ export const Integrations: React.FC = () => {
   const create = useMutation({ mutationFn: integrationsApi.create, onSuccess: () => qc.invalidateQueries({ queryKey: ['integrations'] }) });
   const validate = useMutation({ mutationFn: integrationsApi.validate, onSuccess: () => qc.invalidateQueries({ queryKey: ['integrations'] }) });
   return <div className="max-w-4xl space-y-6">
-    <div><h1 className="text-3xl font-bold">Integrations</h1><p className="text-muted-foreground mt-2">Connect source APIs used for discovery and scanning.</p></div>
+    <p className="text-sm text-muted-foreground">Connect source APIs used for discovery and scanning.</p>
     {isLoading ? <p>Loading...</p> : (Object.keys(CONFIG) as SourceProvider[]).map(provider => <IntegrationCard
       key={provider} provider={provider} integration={data.find(item => item.provider === provider)}
       busy={create.isPending || validate.isPending}

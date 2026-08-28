@@ -173,7 +173,6 @@ export const Findings: React.FC = () => {
       {fromScans && <div className="rounded-xl border bg-card p-4 shadow-sm"><button onClick={() => navigate(returnTo)} className="text-sm font-medium text-primary hover:underline">← 返回任务记录</button><div className="mt-3 flex flex-wrap items-center justify-between gap-3"><div><h2 className="font-semibold">Scan #{sourceScanId}</h2><p className="mt-1 text-sm text-muted-foreground">{sourceScan ? `${sourceScan.source} · ${sourceScan.value}` : '正在加载扫描信息…'}</p></div><div className="text-right"><p className="text-2xl font-bold">{findings.length}</p><p className="text-xs text-muted-foreground">Findings</p></div></div></div>}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Findings</h1>
           {selectedFindings.size > 0 && (
             <p className="text-sm text-muted-foreground mt-1">
               {selectedFindings.size} finding{selectedFindings.size > 1 ? 's' : ''} selected
