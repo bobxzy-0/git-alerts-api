@@ -169,6 +169,7 @@ export interface SourceHealth {
 
 export interface MonitorRule {
   id: number; name: string; enabled: boolean; source: string; scan_type: ScanType; value: string;
+  profile: number | null; auto_generated: boolean;
   interval_minutes: 15 | 30 | 60 | 120 | 360 | 720 | 1440;
   last_run_at: string | null; next_run_at: string | null; is_running: boolean; last_scan: number | null;
 }

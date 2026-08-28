@@ -279,7 +279,11 @@ def _record_source_failure(scan, status, error_code, error_message):
 
 @shared_task(ignore_result=True)
 def dispatch_due_monitor_rules():
-    """Atomically claim due rules so the same rule cannot run concurrently."""
+    """Claim due rules, create visible scan records, then enqueue execution.
+
+    Creating the Scan here is intentional: Beat dispatch must be observable even
+    when a worker is unavailable or the broker rejects the execution task.
+    """
     now = timezone.now()
     stale_before = now - timedelta(hours=12)
     MonitorRule.objects.filter(is_running=True, locked_at__lt=stale_before).update(
@@ -302,24 +306,63 @@ def dispatch_due_monitor_rules():
             next_run_at__lte=now,
         ).update(is_running=True, locked_at=now)
         if claimed:
-            run_monitor_rule_task.delay(rule_id)
-            dispatched += 1
+            rule = MonitorRule.objects.select_related("user").get(pk=rule_id)
+            scan = Scan.objects.create(
+                user=rule.user,
+                source=rule.source,
+                type=rule.scan_type,
+                value=rule.value,
+            )
+            MonitorRule.objects.filter(pk=rule_id).update(last_scan=scan)
+            try:
+                run_monitor_rule_task.delay(rule_id, scan.pk)
+                dispatched += 1
+            except Exception as exc:
+                logger.exception(
+                    "event=monitor_rule_dispatch_failed rule_id=%s scan_id=%s",
+                    rule_id,
+                    scan.pk,
+                )
+                completed_at = timezone.now()
+                scan.execution_status = Scan.ExecutionStatus.FAILED
+                scan.monitoring_status = Scan.MonitoringStatus.UNKNOWN
+                scan.result_status = Scan.ResultStatus.FAILED_INTERNAL
+                scan.error_code = "MONITOR_DISPATCH_FAILED"
+                scan.error_message = str(exc)
+                scan.completed_at = completed_at
+                scan.save(update_fields=[
+                    "execution_status", "monitoring_status", "result_status",
+                    "error_code", "error_message", "completed_at", "updated_at",
+                ])
+                MonitorRule.objects.filter(pk=rule_id).update(
+                    last_run_at=completed_at,
+                    next_run_at=completed_at + timedelta(minutes=rule.interval_minutes),
+                    is_running=False,
+                    locked_at=None,
+                )
     return dispatched
 
 
 @shared_task
-def run_monitor_rule_task(rule_id):
+def run_monitor_rule_task(rule_id, scan_id=None):
     """Execute one claimed rule and always release its concurrency lock."""
     rule = MonitorRule.objects.select_related("user").get(pk=rule_id)
-    if not rule.enabled:
+    # A scan_id means Beat already claimed this run while the rule was enabled.
+    # Finish that observable run even if the user disables future scheduling in
+    # the small window between dispatch and worker execution.
+    if not rule.enabled and scan_id is None:
         MonitorRule.objects.filter(pk=rule_id).update(is_running=False, locked_at=None)
         return None
 
-    scan = Scan.objects.create(
-        user=rule.user,
-        source=rule.source,
-        type=rule.scan_type,
-        value=rule.value,
+    scan = (
+        Scan.objects.get(pk=scan_id, user=rule.user)
+        if scan_id is not None
+        else Scan.objects.create(
+            user=rule.user,
+            source=rule.source,
+            type=rule.scan_type,
+            value=rule.value,
+        )
     )
     MonitorRule.objects.filter(pk=rule_id).update(last_scan=scan)
     try:
