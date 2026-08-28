@@ -31,7 +31,7 @@ def process_repository_scan_queue(queue_id):
             raise SourceAuthError(f"{item.source.title()} integration is required for repository scan")
         scan = Scan.objects.create(
             user=item.user, source=item.source, type=Scan.ScanTypes.REPOSITORY,
-            value=item.repository_url,
+            value=item.repository_url, trigger_type=Scan.TriggerTypes.REPOSITORY_QUEUE,
         )
         item.scan = scan
         item.save(update_fields=["scan", "updated_at"])
@@ -321,6 +321,8 @@ def dispatch_due_monitor_rules():
                 source=rule.source,
                 type=rule.scan_type,
                 value=rule.value,
+                trigger_type=Scan.TriggerTypes.SCHEDULED,
+                monitor_rule=rule,
             )
             MonitorRule.objects.filter(pk=rule_id).update(last_scan=scan)
             try:
@@ -371,6 +373,8 @@ def run_monitor_rule_task(rule_id, scan_id=None):
             source=rule.source,
             type=rule.scan_type,
             value=rule.value,
+            trigger_type=Scan.TriggerTypes.SCHEDULED,
+            monitor_rule=rule,
         )
     )
     MonitorRule.objects.filter(pk=rule_id).update(last_scan=scan)
