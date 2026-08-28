@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { monitorRulesApi, scansApi } from '@/services/api';
 import type { MonitorRule, ScanType, SourceType } from '@/types';
@@ -46,11 +46,12 @@ const SCAN_TYPES: { value: ScanType; label: string; description: string }[] = [
 
 export const NewScan: React.FC = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const queryClient = useQueryClient();
   const [scanType, setScanType] = useState<ScanType>('org_repos');
   const [source, setSource] = useState<SourceType>('github');
   const [query, setQuery] = useState('');
-  const [executionMode, setExecutionMode] = useState<'once' | 'schedule'>('once');
+  const [executionMode, setExecutionMode] = useState<'once' | 'schedule'>(() => searchParams.get('mode') === 'schedule' ? 'schedule' : 'once');
   const [ruleName, setRuleName] = useState('');
   const [scheduleKind, setScheduleKind] = useState<MonitorRule['schedule_kind']>('INTERVAL');
   const [intervalMinutes, setIntervalMinutes] = useState<MonitorRule['interval_minutes']>(60);
