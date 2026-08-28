@@ -13,19 +13,20 @@ export const ScanDetail: React.FC = () => {
     queryKey: ['scan', id],
     queryFn: () => scansApi.get(Number(id)),
     enabled: !!id,
-    refetchInterval: (query) => {
-      const data = query.state.data;
-      // Auto-refresh every 3 seconds if scan is active
-      const isActive = data?.execution_status === 'QUEUED' || data?.execution_status === 'RUNNING';
-      return isActive ? 3000 : false;
-    },
+    refetchInterval: 3_000,
+    refetchIntervalInBackground: false,
+    refetchOnWindowFocus: true,
+    staleTime: 0,
   });
 
   const { data: repositories = [] } = useQuery({
     queryKey: ['scan-repositories', id],
     queryFn: () => scansApi.getRepositories(Number(id)),
     enabled: !!id,
-    refetchInterval: scan?.execution_status === 'RUNNING' ? 3000 : false,
+    refetchInterval: 3_000,
+    refetchIntervalInBackground: false,
+    refetchOnWindowFocus: true,
+    staleTime: 0,
   });
 
   const excludeRepositoryMutation = useMutation({

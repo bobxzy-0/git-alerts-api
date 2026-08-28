@@ -32,14 +32,10 @@ export const Scans: React.FC<{ embedded?: boolean }> = ({ embedded = false }) =>
   const { data: scans = [], isLoading, error } = useQuery({
     queryKey: ['scans', filters],
     queryFn: () => scansApi.list(filters),
-    refetchInterval: (query) => {
-      const data = query.state.data;
-      // Auto-refresh every 5 seconds if any scan is active
-      const hasActiveScan = data?.some(
-        (scan) => scan.execution_status === 'QUEUED' || scan.execution_status === 'RUNNING'
-      );
-      return hasActiveScan ? 5000 : false;
-    },
+    refetchInterval: 5_000,
+    refetchIntervalInBackground: false,
+    refetchOnWindowFocus: true,
+    staleTime: 0,
   });
 
   const bulkDeleteMutation = useMutation({
