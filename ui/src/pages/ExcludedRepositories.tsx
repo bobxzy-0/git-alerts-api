@@ -12,7 +12,7 @@ function repositoryParts(value: string) {
   }
 }
 
-export const ExcludedRepositories: React.FC = () => {
+export const ExcludedRepositories: React.FC<{ embedded?: boolean }> = ({ embedded = false }) => {
   const qc = useQueryClient();
   const { data = [], isLoading } = useQuery({ queryKey: ['excluded-repositories'], queryFn: excludedRepositoriesApi.list });
   const [form, setForm] = useState({ source: 'github' as SourceType, repository_url: '', reason: '' });
@@ -24,7 +24,7 @@ export const ExcludedRepositories: React.FC = () => {
   const remove = useMutation({ mutationFn: excludedRepositoriesApi.delete, onSuccess: () => qc.invalidateQueries({ queryKey: ['excluded-repositories'] }) });
 
   return <div className="space-y-6">
-    <div><h1 className="text-3xl font-bold">Excluded Repositories</h1><p className="text-muted-foreground mt-2">Permanently skip exact repositories before any detection engine runs. Historical scans and findings are retained.</p></div>
+    <div>{!embedded && <h1 className="text-3xl font-bold">Excluded Repositories</h1>}<p className="text-muted-foreground mt-2">排除仓库不会进入检测引擎；历史扫描和 Finding 会继续保留。</p></div>
     <form className="grid md:grid-cols-4 gap-3 border rounded-lg p-4 bg-card" onSubmit={event => { event.preventDefault(); const parts = repositoryParts(form.repository_url); create.mutate({ ...form, ...parts, enabled: true }); }}>
       <select value={form.source} onChange={event => setForm({ ...form, source: event.target.value as SourceType })} className="border rounded px-3 py-2 bg-background"><option value="github">GitHub</option><option value="gitlab">GitLab</option><option value="gitee">Gitee</option><option value="bitbucket">Bitbucket</option><option value="codeberg">Codeberg</option></select>
       <input type="url" required placeholder="https://github.com/owner/repository" value={form.repository_url} onChange={event => setForm({ ...form, repository_url: event.target.value })} className="border rounded px-3 py-2 md:col-span-2" />
