@@ -1,5 +1,5 @@
 import React from 'react';
-import { Link, Outlet, useNavigate } from 'react-router-dom';
+import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { useLanguage } from '@/i18n/LanguageContext';
 
@@ -12,6 +12,8 @@ export const Layout: React.FC = () => {
     logout();
     navigate('/login');
   };
+  const navClass = ({ isActive }: { isActive: boolean }) =>
+    `rounded-md px-3 py-2 text-sm font-medium transition-colors ${isActive ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-muted hover:text-foreground'}`;
 
   return (
     <div className="min-h-screen bg-background">
@@ -23,43 +25,43 @@ export const Layout: React.FC = () => {
               <Link to="/" className="text-2xl font-bold text-primary">
                 GitAlerts
               </Link>
-              <nav className="flex flex-wrap items-center gap-x-4 gap-y-2">
-                <Link
+              <nav className="flex flex-wrap items-center gap-1">
+                <NavLink
                   to="/dashboard"
-                  className="text-sm font-medium text-foreground hover:text-primary transition-colors"
+                  className={navClass}
                 >
                   Dashboard
-                </Link>
-                <Link
+                </NavLink>
+                <NavLink
                   to="/scans"
-                  className="text-sm font-medium text-foreground hover:text-primary transition-colors"
+                  className={navClass}
                 >
                   Scans
-                </Link>
-                <Link
+                </NavLink>
+                <NavLink
                   to="/findings"
-                  className="text-sm font-medium text-foreground hover:text-primary transition-colors"
+                  className={navClass}
                 >
                   Findings
-                </Link>
-                <Link
+                </NavLink>
+                <NavLink
                   to="/notifications"
-                  className="text-sm font-medium text-foreground hover:text-primary transition-colors"
+                  className={navClass}
                 >
                   Notifications
-                </Link>
-                <Link
+                </NavLink>
+                <NavLink
                   to="/integrations"
-                  className="text-sm font-medium text-foreground hover:text-primary transition-colors"
+                  className={navClass}
                 >
                   Integrations
-                </Link>
-                <Link
+                </NavLink>
+                <NavLink
                   to="/settings"
-                  className="text-sm font-medium text-foreground hover:text-primary transition-colors"
+                  className={navClass}
                 >
                   Settings
-                </Link>
+                </NavLink>
               </nav>
             </div>
             <div className="flex items-center space-x-4">
