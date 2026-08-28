@@ -24,8 +24,6 @@ export const Layout: React.FC = () => {
                 GitAlerts
               </Link>
               <nav className="flex flex-wrap items-center gap-x-4 gap-y-2">
-                <Link to="/monitoring" className="text-sm font-medium text-foreground hover:text-primary transition-colors">Monitoring</Link>
-                <Link to="/excluded-repositories" className="text-sm font-medium text-foreground hover:text-primary transition-colors">Excluded Repositories</Link>
                 <Link
                   to="/dashboard"
                   className="text-sm font-medium text-foreground hover:text-primary transition-colors"
