@@ -49,11 +49,22 @@ class Scan(models.Model):
         FAILED_AUTH = "FAILED_AUTH", "Failed - Authentication"
         FAILED_NETWORK = "FAILED_NETWORK", "Failed - Network"
         FAILED_INTERNAL = "FAILED_INTERNAL", "Failed - Internal"
+
+    class TriggerTypes(models.TextChoices):
+        MANUAL = "MANUAL", "Manual"
+        SCHEDULED = "SCHEDULED", "Scheduled"
+        DISCOVERY = "DISCOVERY", "Discovery"
+        REPOSITORY_QUEUE = "REPOSITORY_QUEUE", "Repository queue"
     
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="scans")
     type = models.CharField(max_length=255,choices=ScanTypes.choices, default=ScanTypes.ORG_REPOS)
     value = models.CharField(max_length=255)
     source = models.CharField(max_length=32, choices=SourceType.choices, default=SourceType.GITHUB)
+    trigger_type = models.CharField(max_length=32, choices=TriggerTypes.choices, default=TriggerTypes.MANUAL, db_index=True)
+    monitor_rule = models.ForeignKey(
+        "MonitorRule", null=True, blank=True, on_delete=models.SET_NULL,
+        related_name="scans",
+    )
     execution_status = models.CharField(
         max_length=32,
         choices=ExecutionStatus.choices,
