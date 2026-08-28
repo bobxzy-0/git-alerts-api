@@ -23,7 +23,7 @@ export const Layout: React.FC = () => {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-6 min-w-0">
               <Link to="/" className="text-2xl font-bold text-primary">
-                GitAlerts
+                代码哨兵
               </Link>
               <nav className="flex flex-wrap items-center gap-1">
                 <NavLink
