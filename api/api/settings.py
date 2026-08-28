@@ -146,7 +146,7 @@ CELERY_BEAT_SCHEDULE = {
     },
     "dispatch-due-monitor-rules": {
         "task": "scans.tasks.dispatch_due_monitor_rules",
-        "schedule": 60.0,
+        "schedule": 15.0,
     },
     "send-due-alerts": {
         "task": "notifications.tasks.send_due_alerts",

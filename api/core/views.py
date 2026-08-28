@@ -27,6 +27,13 @@ class SourceHealthView(generics.ListAPIView):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
+        from integrations.models import UserIntegration
+        configured_sources = UserIntegration.objects.filter(
+            user=self.request.user,
+            provider__in=["github", "gitlab", "gitee", "brave"],
+        ).values_list("provider", flat=True)
+        for source in configured_sources:
+            SourceHealth.objects.get_or_create(user=self.request.user, source=source)
         return SourceHealth.objects.filter(user=self.request.user)
 
 
@@ -69,6 +76,12 @@ class DashboardView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
+        from integrations.models import UserIntegration
+        for source in UserIntegration.objects.filter(
+            user=request.user,
+            provider__in=["github", "gitlab", "gitee", "brave"],
+        ).values_list("provider", flat=True):
+            SourceHealth.objects.get_or_create(user=request.user, source=source)
         scans = Scan.objects.filter(user=request.user)
         findings = Finding.objects.filter(
             occurrences__scan__user=request.user

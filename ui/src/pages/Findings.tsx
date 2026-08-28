@@ -170,7 +170,7 @@ export const Findings: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      {fromScans && <div className="rounded-xl border bg-card p-4 shadow-sm"><button onClick={() => navigate(returnTo)} className="text-sm font-medium text-primary hover:underline">← 返回任务记录</button><div className="mt-3 flex flex-wrap items-center justify-between gap-3"><div><h2 className="font-semibold">Scan #{sourceScanId}</h2><p className="mt-1 text-sm text-muted-foreground">{sourceScan ? `${sourceScan.source} · ${sourceScan.value}` : '正在加载扫描信息…'}</p></div><div className="text-right"><p className="text-2xl font-bold">{findings.length}</p><p className="text-xs text-muted-foreground">Findings</p></div></div></div>}
+      {fromScans && <div className="rounded-xl border bg-card p-4 shadow-sm"><button onClick={() => navigate(returnTo)} className="text-sm font-medium text-primary hover:underline">← Back to Task History</button><div className="mt-3 flex flex-wrap items-center justify-between gap-3"><div><h2 className="font-semibold">Scan #{sourceScanId}</h2><p className="mt-1 text-sm text-muted-foreground">{sourceScan ? `${sourceScan.source} · ${sourceScan.value}` : 'Loading scan information...'}</p></div><div className="text-right"><p className="text-2xl font-bold">{findings.length}</p><p className="text-xs text-muted-foreground">Findings</p></div></div></div>}
       <div className="flex items-center justify-between">
         <div>
           {selectedFindings.size > 0 && (

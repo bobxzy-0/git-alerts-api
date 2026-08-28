@@ -77,6 +77,24 @@ def test_new_enabled_rule_is_due_immediately(user):
 
 
 @pytest.mark.django_db
+def test_api_creation_immediately_creates_visible_scan_record(user):
+    client = APIClient()
+    client.force_authenticate(user)
+    with patch("scans.tasks.run_monitor_rule_task.delay") as delay:
+        response = client.post("/monitor-rules/", {
+            "name": "Immediate API rule", "source": "github",
+            "scan_type": "search_repos", "value": "company",
+            "schedule_kind": "INTERVAL", "interval_minutes": 60,
+            "enabled": True,
+        }, format="json")
+
+    assert response.status_code == 201
+    scan = Scan.objects.get(monitor_rule_id=response.json()["id"])
+    assert scan.trigger_type == Scan.TriggerTypes.SCHEDULED
+    delay.assert_called_once_with(response.json()["id"], scan.pk)
+
+
+@pytest.mark.django_db
 def test_dispatch_claims_same_rule_only_once(due_rule):
     with patch("scans.tasks.run_monitor_rule_task.delay") as delay:
         assert dispatch_due_monitor_rules() == 1

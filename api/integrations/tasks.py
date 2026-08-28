@@ -65,6 +65,7 @@ def run_validation_task(integration_id):
         # Update last_validated_at timestamp
         integration.last_validated_at = timezone.now()
         integration.save()
+        _sync_source_health(integration)
 
         logger.info(
             f"event=integration_validation_completed integration_id={integration_id} status={integration.status}"
@@ -74,6 +75,28 @@ def run_validation_task(integration_id):
             f"event=integration_validation_failed integration_id={integration_id} error={e}"
         )
         raise
+
+
+def _sync_source_health(integration):
+    """Make integration connectivity immediately visible on Source Health."""
+    from core.models import SourceHealth
+
+    if integration.provider not in {"github", "gitlab", "gitee", "brave"}:
+        return
+    now = timezone.now()
+    connected = integration.status == UserIntegration.Status.CONNECTED
+    defaults = {
+        "status": SourceHealth.Status.HEALTHY if connected else SourceHealth.Status.WARNING,
+        "last_checked_at": now,
+        "error_code": "" if connected else "INTEGRATION_VALIDATION_FAILED",
+        "error_message": integration.error_message,
+    }
+    defaults["last_success_at" if connected else "last_failure_at"] = now
+    SourceHealth.objects.update_or_create(
+        user=integration.user,
+        source=integration.provider,
+        defaults=defaults,
+    )
 
 def validate_github_integration(github_token: str) -> tuple[bool, str]:
     """

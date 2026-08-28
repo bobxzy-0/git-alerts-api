@@ -13,7 +13,7 @@ def test_heartbeat_is_registered_in_beat_schedule():
 
     dispatcher = settings.CELERY_BEAT_SCHEDULE["dispatch-due-monitor-rules"]
     assert dispatcher["task"] == "scans.tasks.dispatch_due_monitor_rules"
-    assert dispatcher["schedule"] == 60.0
+    assert dispatcher["schedule"] == 15.0
 
 
 def test_compose_defines_celery_beat_service():
@@ -24,3 +24,4 @@ def test_compose_defines_celery_beat_service():
     assert "celery -A api beat" in service["command"]
     assert service["environment"]["CELERY_BROKER_URL"] == "redis://redis:6379/0"
     assert "celery_beat_data:/var/lib/celery" in service["volumes"]
+    assert service["restart"] == "unless-stopped"

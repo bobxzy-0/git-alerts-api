@@ -102,10 +102,10 @@ export const NewScan: React.FC = () => {
 
       <form onSubmit={handleSubmit} className="space-y-6">
         <div className="rounded-lg border bg-card p-6">
-          <label className="mb-3 block text-sm font-medium">执行方式</label>
+          <label className="mb-3 block text-sm font-medium">Execution Mode</label>
           <div className="grid gap-3 sm:grid-cols-2">
-            <label className={`cursor-pointer rounded-lg border p-4 ${executionMode === 'once' ? 'border-primary bg-primary/5' : ''}`}><input className="mr-2" type="radio" checked={executionMode === 'once'} onChange={() => setExecutionMode('once')}/><strong>仅执行一次</strong><p className="ml-6 mt-1 text-xs text-muted-foreground">立即创建 Scan 并加入执行队列</p></label>
-            <label className={`cursor-pointer rounded-lg border p-4 ${executionMode === 'schedule' ? 'border-primary bg-primary/5' : ''}`}><input className="mr-2" type="radio" checked={executionMode === 'schedule'} onChange={() => setExecutionMode('schedule')}/><strong>定时执行</strong><p className="ml-6 mt-1 text-xs text-muted-foreground">按计划持续生成 Scan 记录</p></label>
+            <label className={`cursor-pointer rounded-lg border p-4 ${executionMode === 'once' ? 'border-primary bg-primary/5' : ''}`}><input className="mr-2" type="radio" checked={executionMode === 'once'} onChange={() => setExecutionMode('once')}/><strong>Run Once</strong><p className="ml-6 mt-1 text-xs text-muted-foreground">Create a Scan now and add it to the execution queue.</p></label>
+            <label className={`cursor-pointer rounded-lg border p-4 ${executionMode === 'schedule' ? 'border-primary bg-primary/5' : ''}`}><input className="mr-2" type="radio" checked={executionMode === 'schedule'} onChange={() => setExecutionMode('schedule')}/><strong>Scheduled</strong><p className="ml-6 mt-1 text-xs text-muted-foreground">Continuously generate Scan records on schedule.</p></label>
           </div>
         </div>
         {/* Scan Type Selection */}
@@ -167,13 +167,13 @@ export const NewScan: React.FC = () => {
         </div>
 
         {executionMode === 'schedule' && <div className="space-y-4 rounded-lg border bg-card p-6">
-          <h2 className="font-semibold">定时计划</h2>
-          <div><label className="mb-2 block text-sm font-medium">计划名称</label><input required className="w-full rounded-md border bg-background px-3 py-2" placeholder="例如：公司域名每日监控" value={ruleName} onChange={e => setRuleName(e.target.value)}/></div>
-          <div className="grid gap-3 sm:grid-cols-2"><select className="rounded-md border bg-background px-3 py-2" value={scheduleKind} onChange={e => setScheduleKind(e.target.value as MonitorRule['schedule_kind'])}><option value="INTERVAL">固定间隔</option><option value="DAILY">每天指定时间</option><option value="WEEKLY">每周指定时间</option><option value="CRON">高级 Cron</option></select>
-          {scheduleKind === 'INTERVAL' && <select className="rounded-md border bg-background px-3 py-2" value={intervalMinutes} onChange={e => setIntervalMinutes(Number(e.target.value) as MonitorRule['interval_minutes'])}>{intervals.map(value => <option key={value} value={value}>{value < 60 ? `${value} 分钟` : `${value / 60} 小时`}</option>)}</select>}
-          {(scheduleKind === 'DAILY' || scheduleKind === 'WEEKLY') && <input aria-label="执行时间" type="time" required className="rounded-md border bg-background px-3 py-2" value={scheduleTime} onChange={e => setScheduleTime(e.target.value)}/>}</div>
-          {scheduleKind === 'WEEKLY' && <div className="flex flex-wrap gap-2">{['一','二','三','四','五','六','日'].map((label, day) => <label key={day} className={`cursor-pointer rounded-md border px-3 py-2 text-sm ${weekdays.includes(day) ? 'border-primary bg-primary/10' : ''}`}><input type="checkbox" className="mr-2" checked={weekdays.includes(day)} onChange={() => setWeekdays(weekdays.includes(day) ? weekdays.filter(value => value !== day) : [...weekdays, day])}/>周{label}</label>)}</div>}
-          {scheduleKind === 'CRON' && <div><input required pattern="\\S+\\s+\\S+\\s+\\S+\\s+\\S+\\s+\\S+" className="w-full rounded-md border bg-background px-3 py-2 font-mono" value={cronExpression} onChange={e => setCronExpression(e.target.value)}/><p className="mt-1 text-xs text-muted-foreground">五段 Cron：分 时 日 月 周，例如 0 9 * * 1-5</p></div>}
+          <h2 className="font-semibold">Schedule</h2>
+          <div><label className="mb-2 block text-sm font-medium">Plan Name</label><input required className="w-full rounded-md border bg-background px-3 py-2" placeholder="Example: Daily company domain monitoring" value={ruleName} onChange={e => setRuleName(e.target.value)}/></div>
+          <div className="grid gap-3 sm:grid-cols-2"><select className="rounded-md border bg-background px-3 py-2" value={scheduleKind} onChange={e => setScheduleKind(e.target.value as MonitorRule['schedule_kind'])}><option value="INTERVAL">Fixed Interval</option><option value="DAILY">Daily at a specific time</option><option value="WEEKLY">Weekly at a specific time</option><option value="CRON">Advanced Cron</option></select>
+          {scheduleKind === 'INTERVAL' && <select className="rounded-md border bg-background px-3 py-2" value={intervalMinutes} onChange={e => setIntervalMinutes(Number(e.target.value) as MonitorRule['interval_minutes'])}>{intervals.map(value => <option key={value} value={value}>{value < 60 ? `${value} minutes` : `${value / 60} hours`}</option>)}</select>}
+          {(scheduleKind === 'DAILY' || scheduleKind === 'WEEKLY') && <input aria-label="Run Time" type="time" required className="rounded-md border bg-background px-3 py-2" value={scheduleTime} onChange={e => setScheduleTime(e.target.value)}/>}</div>
+          {scheduleKind === 'WEEKLY' && <div className="flex flex-wrap gap-2">{['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'].map((label, day) => <label key={day} className={`cursor-pointer rounded-md border px-3 py-2 text-sm ${weekdays.includes(day) ? 'border-primary bg-primary/10' : ''}`}><input type="checkbox" className="mr-2" checked={weekdays.includes(day)} onChange={() => setWeekdays(weekdays.includes(day) ? weekdays.filter(value => value !== day) : [...weekdays, day])}/>{label}</label>)}</div>}
+          {scheduleKind === 'CRON' && <div><input required pattern="\\S+\\s+\\S+\\s+\\S+\\s+\\S+\\s+\\S+" className="w-full rounded-md border bg-background px-3 py-2 font-mono" value={cronExpression} onChange={e => setCronExpression(e.target.value)}/><p className="mt-1 text-xs text-muted-foreground">Five-field Cron: minute hour day month weekday, for example 0 9 * * 1-5</p></div>}
         </div>}
 
         {/* Error Display */}

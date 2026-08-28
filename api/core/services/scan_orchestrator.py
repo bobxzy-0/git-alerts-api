@@ -65,6 +65,8 @@ class ScanOrchestrator:
         self.scan.ignored_repositories = len(repository_records) - len(active_records)
         self.scan.save(update_fields=["total_repositories", "ignored_repositories", "updated_at"])
 
+        self._save_repository_matches(active_records)
+
         if self.scan.source == SourceType.BRAVE:
             for record in active_records:
                 item, created = RepositoryScanQueue.objects.get_or_create(
@@ -157,8 +159,30 @@ class ScanOrchestrator:
             self.repository_successes += 1
             before_findings = self.scan.total_findings
             self.save_findings(repo, findings)
-            record.findings_count = self.scan.total_findings - before_findings
+            record.findings_count += self.scan.total_findings - before_findings
             record.save(update_fields=["status", "error_message", "findings_count", "updated_at"])
+
+    def _save_repository_matches(self, records):
+        """Persist repository discovery as an INFO Finding, independently of secrets."""
+        for record in records:
+            before = self.scan.total_findings
+            self.save_findings(record.repository_url, [{
+                "repository": record.repository_url,
+                "type": "Repository Match",
+                "description": f"Repository matched monitoring query: {self.scan.value}",
+                "value": record.repository_url,
+                "file": "",
+                "line": None,
+                "author": "",
+                "commit": "",
+                "verified": False,
+                "sensitive": False,
+                "severity": Finding.Severity.INFO,
+                "risk_score": 10,
+                "url": record.repository_url,
+            }])
+            record.findings_count += self.scan.total_findings - before
+            record.save(update_fields=["findings_count", "updated_at"])
 
     def _record_discovered_targets(self, targets):
         exclusions = {
@@ -258,7 +282,11 @@ class ScanOrchestrator:
                     secret_hash,
                 ])
                 fingerprint = hashlib.sha256(fingerprint_source.encode()).hexdigest()
-                risk_score, severity = self._rate_finding(finding)
+                risk_score, severity = (
+                    (finding["risk_score"], finding["severity"])
+                    if "risk_score" in finding and "severity" in finding
+                    else self._rate_finding(finding)
+                )
                 now = timezone.now()
                 saved_finding, created = Finding.objects.get_or_create(
                     fingerprint=fingerprint,
@@ -268,14 +296,14 @@ class ScanOrchestrator:
                         "source": self.scan.source,
                         "repository": repository,
                         "type": finding.get("type") or "Unknown",
-                        "value": self._mask_secret(raw_value),
+                        "value": raw_value if finding.get("sensitive") is False else self._mask_secret(raw_value),
                         "secret_hash": secret_hash,
                         "description": finding.get("description") or "",
                         "file": finding.get("file") or "",
                         "line": finding.get("line"),
                         "email": finding.get("author") or "",
                         "commit_hash": finding.get("commit") or "",
-                        "commit_url": f"{repo_url}/commit/{finding.get('commit') or ''}",
+                        "commit_url": finding.get("url") or f"{repo_url}/commit/{finding.get('commit') or ''}",
                         "validated": bool(finding.get("verified")),
                         "severity": severity,
                         "risk_score": risk_score,

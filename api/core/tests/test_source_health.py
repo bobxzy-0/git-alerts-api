@@ -3,6 +3,7 @@ from django.contrib.auth.models import User
 from rest_framework.test import APIClient
 
 from core.models import SourceHealth
+from integrations.models import UserIntegration
 
 
 @pytest.mark.django_db
@@ -18,3 +19,20 @@ def test_source_health_api_is_user_scoped():
 
     assert response.status_code == 200
     assert [item["source"] for item in response.json()] == ["github"]
+
+
+@pytest.mark.django_db
+def test_source_health_exposes_integration_connectivity():
+    user = User.objects.create_user(username="connected-health")
+    UserIntegration.objects.create(
+        user=user, provider="github", status=UserIntegration.Status.CONNECTED,
+        token_encrypted="encrypted",
+    )
+    client = APIClient()
+    client.force_authenticate(user)
+
+    response = client.get("/source-health/")
+
+    assert response.status_code == 200
+    assert response.json()[0]["configured"] is True
+    assert response.json()[0]["integration_status"] == "connected"

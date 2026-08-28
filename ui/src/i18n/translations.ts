@@ -63,6 +63,62 @@ export const zhCN: Record<string, string> = {
   'Ignore Email Domains': '忽略邮箱域名', 'No ignored types yet': '暂无忽略类型',
   'No ignored domains yet': '暂无忽略域名', 'Language': '语言',
   'English': 'English', 'Simplified Chinese': '简体中文',
+  'Source Leak Monitor': '源码泄漏监控', 'Sign in to Source Leak Monitor': '登录源码泄漏监控',
+  'Monitoring Plans': '监控计划', 'Task History': '任务记录',
+  'Manage monitoring plans and every execution record in one place.': '统一管理持续监控计划和每一次实际执行记录。',
+  'Execution Mode': '执行方式', 'Run Once': '仅执行一次', 'Scheduled': '定时执行',
+  'Create a Scan now and add it to the execution queue.': '立即创建 Scan 并加入执行队列。',
+  'Continuously generate Scan records on schedule.': '按计划持续生成 Scan 记录。',
+  'Schedule': '定时计划', 'Plan Name': '计划名称', 'Scan Target': '扫描目标',
+  'Example: Daily company domain monitoring': '例如：公司域名每日监控',
+  'Fixed Interval': '固定间隔', 'Daily at a specific time': '每天指定时间',
+  'Weekly at a specific time': '每周指定时间', 'Advanced Cron': '高级 Cron',
+  'Run Time': '执行时间', 'Monday': '周一', 'Tuesday': '周二', 'Wednesday': '周三',
+  'Thursday': '周四', 'Friday': '周五', 'Saturday': '周六', 'Sunday': '周日',
+  'Five-field Cron: minute hour day month weekday, for example 0 9 * * 1-5': '五段 Cron：分 时 日 月 周，例如 0 9 * * 1-5',
+  'Manage all scheduled scans.': '管理所有定时扫描任务。', 'Scheduled Scans': '定时扫描任务',
+  'New Scheduled Scan': '新建定时扫描', 'Failed to load monitoring plans': '监控计划加载失败',
+  'No scheduled scans yet': '暂无定时扫描任务',
+  'Create a scan and choose scheduled execution to add your first plan.': '通过“新建扫描”选择“定时执行”创建第一条计划。',
+  'Schedule Type': '计划类型', 'Interval': '执行间隔', 'Next Run': '下次执行',
+  'Latest Scan': '最近扫描', 'Enabled': '已启用', 'Never run': '尚未执行',
+  'Running': '执行中', 'Run Now': '立即执行', 'Edit Monitoring Plan': '编辑监控计划',
+  'Changes apply to future runs only.': '修改仅影响后续执行。', 'Cron Expression': 'Cron 表达式',
+  'Five fields: minute hour day month weekday': '五段格式：分 时 日 月 周', 'Save Changes': '保存修改',
+  'Continuous source code and secret leak monitoring overview': '持续代码与敏感信息泄漏监控概览',
+  'Risk distribution': '风险分布', 'Findings grouped by risk severity': '按发现项风险等级统计',
+  'Scans during the last 14 days': '最近 14 天扫描次数', 'Task history →': '任务记录 →',
+  'Color: connected': '彩色：已连接', 'Gray: disconnected or not configured': '灰色：未连接或未配置',
+  'Integration connectivity and the latest scan health are shown separately from Finding severity.': '集成连接状态和最近扫描健康状态与发现项风险等级分开显示。',
+  'Integration:': '集成状态：', 'Last checked:': '最近检查：', 'Last success:': '最近成功：',
+  'Results:': '结果数：', 'New findings:': '新发现项：', 'Rate limit:': '速率额度：',
+  'System and Ignore Rules': '系统与忽略规则', 'Back to Task History': '返回任务记录',
+  'Loading scan information...': '正在加载扫描信息…',
+  'Excluded repositories do not enter detection engines; historical scans and Findings are retained.': '排除仓库不会进入检测引擎；历史扫描和发现项会继续保留。',
+  'CRITICAL/HIGH are sent immediately; only NEW and REOPENED Findings are notified by default.': 'CRITICAL/HIGH 立即通知；默认仅发送 NEW 和 REOPENED 发现项。',
+  'Collapse': '收起', 'Add Notification Channel': '新增通知渠道',
+  'Send to the security team mailbox': '发送到安全团队邮箱', 'Push to an HTTPS endpoint': '推送到 HTTPS 接收端点',
+  'Channel Name': '渠道名称', 'Security team mailbox': '安全团队邮箱',
+  'Security event Webhook': '安全事件 Webhook', 'Email Address': '邮箱地址',
+  'Failed to create channel. Check the input and service configuration.': '渠道创建失败，请检查输入或服务配置。',
+  'Save Channel': '保存渠道', 'No notification channels': '暂无通知渠道',
+  'Create an Email or Webhook channel to receive risk alerts.': '创建 Email 或 Webhook 渠道接收风险告警。',
+  'Delete Channel': '删除渠道', 'Live': '实时更新',
+  'Repository Match': '仓库匹配',
+  'Connect source APIs used for discovery and scanning.': '连接用于项目发现和扫描的数据源 API。',
+  'Use a token with repository and organization read access.': '使用具有仓库和组织读取权限的令牌。',
+  'Use a token with read_api access.': '使用具有 read_api 权限的令牌。',
+  'Use an API v5 personal access token with repository read access.': '使用具有仓库读取权限的 API v5 个人访问令牌。',
+  'Use an official Brave Search API subscription key.': '使用官方 Brave Search API 订阅密钥。',
+  'not connected': '未连接', 'Never': '从未', 'Last validated:': '最近验证：',
+  'Proxy:': '代理：', 'configured · credentials encrypted': '已配置 · 凭据已加密',
+  'Direct connection': '直接连接', 'Test Connection': '测试连接', 'Update Connection': '更新连接',
+  'Source proxy': '数据源代理',
+  "Used by this source's API requests and repository scans. HTTP, HTTPS and SOCKS5 are supported.": '用于该数据源的 API 请求和仓库扫描，支持 HTTP、HTTPS 和 SOCKS5。',
+  'Keep current encrypted proxy': '保留当前加密代理', 'Connect directly (no proxy)': '直接连接（不使用代理）',
+  'Configure or replace proxy': '配置或替换代理', 'Proxy host': '代理主机', 'Port': '端口',
+  'Username (optional)': '用户名（可选）', 'Password (optional)': '密码（可选）',
+  'Save Connection': '保存连接',
 };
 
 export function translateText(value: string): string {
@@ -72,5 +128,11 @@ export function translateText(value: string): string {
     .replace(/^(\d+) findings?$/, '$1 个发现项')
     .replace(/^(\d+) scans? selected$/, '已选择 $1 个扫描任务')
     .replace(/^(\d+) findings? selected$/, '已选择 $1 个发现项')
+    .replace(/^(\d+) plans; new plans are enabled by default\.$/, '共 $1 条；新任务默认启用。')
+    .replace(/^Every (\d+) minutes$/, '每 $1 分钟')
+    .replace(/^Every (\d+) hours$/, '每 $1 小时')
+    .replace(/^Daily at (.+)$/, '每天 $1')
+    .replace(/^(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)(, (Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday))* at (.+)$/, (text) => text.replace(' at ', ' ').replace(/Monday/g, '周一').replace(/Tuesday/g, '周二').replace(/Wednesday/g, '周三').replace(/Thursday/g, '周四').replace(/Friday/g, '周五').replace(/Saturday/g, '周六').replace(/Sunday/g, '周日').replace(/, /g, '、'))
+    .replace(/^Refreshes every (\d+) seconds while visible$/, '页面可见时每 $1 秒自动刷新')
     .replace(/^Delete Selected \((\d+)\)$/, '删除所选项（$1）');
 }

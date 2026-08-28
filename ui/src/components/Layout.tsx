@@ -23,7 +23,7 @@ export const Layout: React.FC = () => {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-6 min-w-0">
               <Link to="/" className="text-2xl font-bold text-primary">
-                源码泄漏监控
+                Source Leak Monitor
               </Link>
               <nav className="flex flex-wrap items-center gap-1">
                 <NavLink
@@ -65,15 +65,10 @@ export const Layout: React.FC = () => {
               </nav>
             </div>
             <div className="flex items-center space-x-4">
-              <select
-                aria-label="Language"
-                value={locale}
-                onChange={(event) => setLocale(event.target.value === 'zh-CN' ? 'zh-CN' : 'en')}
-                className="rounded-md border border-input bg-background px-2 py-1 text-sm text-foreground"
-              >
-                <option value="zh-CN">简体中文</option>
-                <option value="en">English</option>
-              </select>
+              <div role="group" aria-label="Language" className="flex rounded-full border bg-muted/40 p-0.5 text-xs font-semibold">
+                <button type="button" aria-pressed={locale === 'zh-CN'} onClick={() => setLocale('zh-CN')} className={`rounded-full px-2.5 py-1 transition-colors ${locale === 'zh-CN' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}>CN</button>
+                <button type="button" aria-pressed={locale === 'en'} onClick={() => setLocale('en')} className={`rounded-full px-2.5 py-1 transition-colors ${locale === 'en' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}>EN</button>
+              </div>
               {user && (
                 <>
                   <span className="text-sm text-muted-foreground">{user.username}</span>
