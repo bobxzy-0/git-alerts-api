@@ -23,7 +23,10 @@ export const Monitoring: React.FC<{ embedded?: boolean }> = ({ embedded = false 
   const { data: rules = [], isLoading, error } = useQuery({
     queryKey: ['monitor-rules'],
     queryFn: monitorRulesApi.list,
-    refetchInterval: 30_000,
+    refetchInterval: 5_000,
+    refetchIntervalInBackground: false,
+    refetchOnWindowFocus: true,
+    staleTime: 0,
   });
   const scheduledRules = rules.filter(rule => rule.profile === null);
   const refresh = () => qc.invalidateQueries({ queryKey: ['monitor-rules'] });
