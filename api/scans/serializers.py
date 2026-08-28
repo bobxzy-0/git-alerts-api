@@ -4,6 +4,7 @@ from .models import ExcludedRepository, MonitorRule, MonitoringProfile, Scan, Sc
 from .services.monitoring_profiles import sync_profile_rules
 from integrations.models import UserIntegration
 from croniter import croniter
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 class ScanSerializer(serializers.ModelSerializer):
     """Serializer for scan model with user validation"""
@@ -95,13 +96,18 @@ class MonitorRuleSerializer(serializers.ModelSerializer):
         kind = attrs.get("schedule_kind", getattr(self.instance, "schedule_kind", MonitorRule.ScheduleKinds.INTERVAL))
         weekdays = attrs.get("schedule_weekdays", getattr(self.instance, "schedule_weekdays", []))
         expression = attrs.get("cron_expression", getattr(self.instance, "cron_expression", ""))
+        timezone_name = attrs.get("timezone", getattr(self.instance, "timezone", "Asia/Shanghai"))
+        try:
+            ZoneInfo(timezone_name)
+        except (ZoneInfoNotFoundError, ValueError, TypeError):
+            raise serializers.ValidationError({"timezone": "Enter a valid IANA time zone, for example Asia/Shanghai."})
         if kind == MonitorRule.ScheduleKinds.WEEKLY and (not weekdays or any(not isinstance(day, int) or day not in range(7) for day in weekdays)):
             raise serializers.ValidationError({"schedule_weekdays": "Select at least one weekday (0=Monday, 6=Sunday)."})
         if kind == MonitorRule.ScheduleKinds.CRON and not croniter.is_valid(expression):
             raise serializers.ValidationError({"cron_expression": "Enter a valid five-field cron expression."})
 
     def update(self, instance, validated_data):
-        scheduling_fields = {"interval_minutes", "schedule_kind", "schedule_time", "schedule_weekdays", "cron_expression", "enabled"}
+        scheduling_fields = {"interval_minutes", "schedule_kind", "schedule_time", "schedule_weekdays", "cron_expression", "timezone", "enabled"}
         changed = scheduling_fields.intersection(validated_data)
         instance = super().update(instance, validated_data)
         if changed and instance.enabled and not instance.is_running:

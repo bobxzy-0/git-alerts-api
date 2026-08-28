@@ -1,9 +1,7 @@
 from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 
 from croniter import croniter
-from django.utils import timezone
-
-
 def next_occurrence(rule, after):
     """Return the next timezone-aware occurrence for a monitor rule."""
     if rule.schedule_kind == rule.ScheduleKinds.INTERVAL:
@@ -11,7 +9,7 @@ def next_occurrence(rule, after):
             return after
         return after + timedelta(minutes=rule.interval_minutes)
 
-    local_after = timezone.localtime(after)
+    local_after = after.astimezone(ZoneInfo(rule.timezone))
     if rule.schedule_kind == rule.ScheduleKinds.CRON:
         return croniter(rule.cron_expression, local_after).get_next(datetime)
 

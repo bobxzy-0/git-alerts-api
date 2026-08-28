@@ -137,6 +137,7 @@ class MonitorRule(models.Model):
     schedule_time = models.TimeField(default=time(0, 0))
     schedule_weekdays = models.JSONField(default=list, blank=True)
     cron_expression = models.CharField(max_length=100, blank=True, default="")
+    timezone = models.CharField(max_length=64, default="Asia/Shanghai")
     last_run_at = models.DateTimeField(null=True, blank=True)
     next_run_at = models.DateTimeField(null=True, blank=True, db_index=True)
     is_running = models.BooleanField(default=False, db_index=True)

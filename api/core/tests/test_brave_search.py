@@ -32,6 +32,13 @@ def test_brave_sends_proxy_safe_cache_headers():
     assert headers["Accept-Encoding"] == "gzip"
 
 
+def test_brave_strips_token_whitespace_before_sending():
+    result = response(200, {"web": {"results": []}})
+    with patch("requests.get", return_value=result) as request:
+        BraveSearchClient("  valid-key\n").search("acme")
+    assert request.call_args.kwargs["headers"]["X-Subscription-Token"] == "valid-key"
+
+
 def test_brave_422_includes_validation_detail():
     result = response(422, {
         "error": {
@@ -41,6 +48,12 @@ def test_brave_422_includes_validation_detail():
     })
     with patch("requests.get", return_value=result), pytest.raises(SourceResponseError, match="cache-control"):
         BraveSearchClient("key").search("acme")
+
+
+def test_brave_422_invalid_subscription_token_is_auth_failure():
+    result = response(422, {"error": {"detail": "The provided subscription token is invalid."}})
+    with patch("requests.get", return_value=result), pytest.raises(SourceAuthError, match="API key is invalid"):
+        BraveSearchClient("bad-key").search("acme")
 
 
 def test_brave_adapter_extracts_supported_repositories_and_deduplicates():
