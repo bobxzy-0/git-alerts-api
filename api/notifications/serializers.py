@@ -13,13 +13,22 @@ class NotificationChannelSerializer(serializers.ModelSerializer):
     def validate(self, attrs):
         channel_type = attrs.get("channel_type", getattr(self.instance, "channel_type", None))
         target = attrs.get("target", getattr(self.instance, "target", ""))
+        template = attrs.get("body_template", getattr(self.instance, "body_template", ""))
         if channel_type == NotificationChannel.Types.EMAIL:
             serializers.EmailField().run_validation(target)
+            if template:
+                raise serializers.ValidationError({"body_template": "Templates are only available for Webhook channels."})
         elif channel_type == NotificationChannel.Types.WEBHOOK:
             try:
                 validate_webhook_target(target)
             except ValueError as exc:
                 raise serializers.ValidationError({"target": str(exc)}) from exc
+            if template:
+                try:
+                    import json
+                    json.loads(template)
+                except (TypeError, ValueError) as exc:
+                    raise serializers.ValidationError({"body_template": "Webhook template must be valid JSON."}) from exc
         return attrs
 
 
