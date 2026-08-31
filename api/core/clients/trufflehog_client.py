@@ -5,6 +5,8 @@ from logging import getLogger
 
 logger = getLogger(__name__)
 
+from core.detection.base import process_error_message
+
 
 class TruffleHogClient:
     """TruffleHog client for scanning secrets in the repositories"""
@@ -76,8 +78,9 @@ class TruffleHogClient:
             raise RuntimeError("TruffleHog scan timed out after 600 seconds") from exc
 
         except Exception as e:
+            details = process_error_message(e)
             logger.error(
-                f"event=trufflehog_scan_error repository={repository_url} error={e}",
+                f"event=trufflehog_scan_error repository={repository_url} error={details}",
                 exc_info=True,
             )
-            raise
+            raise RuntimeError(f"TruffleHog scan failed: {details}") from e

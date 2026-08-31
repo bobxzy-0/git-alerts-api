@@ -2,7 +2,6 @@ from unittest.mock import Mock, patch
 
 import pytest
 from django.contrib.auth.models import User
-from django.utils import timezone
 from rest_framework.test import APIClient
 
 from core.services.scan_orchestrator import ScanOrchestrator
@@ -31,8 +30,7 @@ def test_permanently_excluded_repository_never_reaches_detection_engine():
     ]
     detector = Mock()
     detector.scan_repository.return_value = []
-    with patch.object(ScanOrchestrator, "is_recently_scanned", return_value=False):
-        ScanOrchestrator(scan, adapter, detector).run()
+    ScanOrchestrator(scan, adapter, detector).run()
 
     detector.scan_repository.assert_called_once_with(
         repository_url="https://github.com/acme/scanned", only_verified=True,
@@ -92,16 +90,24 @@ def test_scan_repository_api_only_returns_owned_scan():
 
 
 @pytest.mark.django_db
-def test_skipped_history_does_not_keep_repository_skipped_forever():
-    user = User.objects.create_user(username="skip-history-user")
-    scan = Scan.objects.create(user=user, source="github", value="acme")
+def test_completed_history_does_not_skip_repository():
+    user = User.objects.create_user(username="completed-history-user")
+    scan = Scan.objects.create(user=user, source="github", type="search_repos", value="acme")
     repository_url = "https://github.com/acme/repo"
     RepoScanHistory.objects.create(
         repository=repository_url,
-        status=RepoScanHistory.ScanStatus.SKIPPED,
-        completed_at=timezone.now(),
+        status=RepoScanHistory.ScanStatus.COMPLETED,
     )
+    adapter = Mock()
+    adapter.search.return_value = [
+        RepositoryTarget("github", repository_url, "acme", "repo")
+    ]
+    detector = Mock()
+    detector.scan_repository.return_value = []
 
-    orchestrator = ScanOrchestrator(scan, Mock(), Mock())
+    ScanOrchestrator(scan, adapter, detector).run()
 
-    assert orchestrator.is_recently_scanned(repository_url) is False
+    detector.scan_repository.assert_called_once_with(
+        repository_url=repository_url, only_verified=True,
+    )
+    assert ScanRepository.objects.get(scan=scan).status == ScanRepository.Status.COMPLETED

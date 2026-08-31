@@ -16,7 +16,6 @@ export const Settings: React.FC = () => {
   const { data: ignoreTypes = [], isLoading: typesLoading } = useQuery({ queryKey: ['ignore-types'], queryFn: ignoreRulesApi.listTypes });
   const { data: ignoreDomains = [], isLoading: domainsLoading } = useQuery({ queryKey: ['ignore-domains'], queryFn: ignoreRulesApi.listDomains });
   const { data: savedEmailConfig } = useQuery({ queryKey: ['email-configuration'], queryFn: emailConfigurationApi.get });
-  const [skipRecentDays, setSkipRecentDays] = useState(15);
   const [verifiedOnly, setVerifiedOnly] = useState(false);
   const [orgReposOnly, setOrgReposOnly] = useState(false);
   const [brandName, setBrandName] = useState('万联源码泄漏监控');
@@ -26,7 +25,7 @@ export const Settings: React.FC = () => {
   const [emailConfig, setEmailConfig] = useState<Partial<EmailConfiguration>>({ enabled:false, host:'', port:587, username:'', password:'', from_email:'', use_tls:true, use_ssl:false });
   const [newType, setNewType] = useState('');
   const [newDomain, setNewDomain] = useState('');
-  useEffect(() => { if (settings) { setSkipRecentDays(settings.skip_recent_days); setVerifiedOnly(settings.verified_only); setOrgReposOnly(settings.org_repos_only); setBrandName(settings.brand_name); setLoginTitle(settings.login_title); setHomeTitle(settings.home_title); setHomeDescription(settings.home_description); } }, [settings]);
+  useEffect(() => { if (settings) { setVerifiedOnly(settings.verified_only); setOrgReposOnly(settings.org_repos_only); setBrandName(settings.brand_name); setLoginTitle(settings.login_title); setHomeTitle(settings.home_title); setHomeDescription(settings.home_description); } }, [settings]);
   useEffect(() => { if (savedEmailConfig) setEmailConfig({...savedEmailConfig, password:''}); }, [savedEmailConfig]);
   const updateSettingsMutation = useMutation({ mutationFn: settingsApi.update, onSuccess: () => { queryClient.invalidateQueries({queryKey:['settings']}); queryClient.invalidateQueries({queryKey:['branding']}); } });
   const saveEmailMutation = useMutation({ mutationFn: emailConfigurationApi.update, onSuccess: value => { queryClient.setQueryData(['email-configuration'], value); setEmailConfig({...value,password:''}); } });
@@ -34,7 +33,7 @@ export const Settings: React.FC = () => {
   const deleteTypeMutation = useMutation({ mutationFn: ignoreRulesApi.deleteType, onSuccess: () => queryClient.invalidateQueries({queryKey:['ignore-types']}) });
   const addDomainMutation = useMutation({ mutationFn: ignoreRulesApi.createDomain, onSuccess: () => { queryClient.invalidateQueries({queryKey:['ignore-domains']}); setNewDomain(''); } });
   const deleteDomainMutation = useMutation({ mutationFn: ignoreRulesApi.deleteDomain, onSuccess: () => queryClient.invalidateQueries({queryKey:['ignore-domains']}) });
-  const saveSettings = (e:React.FormEvent) => { e.preventDefault(); updateSettingsMutation.mutate({skip_recent_days:skipRecentDays,verified_only:verifiedOnly,org_repos_only:orgReposOnly,brand_name:brandName,login_title:loginTitle,home_title:homeTitle,home_description:homeDescription}); };
+  const saveSettings = (e:React.FormEvent) => { e.preventDefault(); updateSettingsMutation.mutate({verified_only:verifiedOnly,org_repos_only:orgReposOnly,brand_name:brandName,login_title:loginTitle,home_title:homeTitle,home_description:homeDescription}); };
   return <div className="space-y-6">
     <div className="flex gap-1 border-b"><button onClick={()=>setSearchParams({tab:'system'})} className={`px-5 py-3 text-sm font-medium ${tab==='system'?'border-b-2 border-primary text-primary':'text-muted-foreground'}`}>{t('System and Ignore Rules')}</button><button onClick={()=>setSearchParams({tab:'exclusions'})} className={`px-5 py-3 text-sm font-medium ${tab==='exclusions'?'border-b-2 border-primary text-primary':'text-muted-foreground'}`}>{t('Excluded Repositories')}</button></div>
     {tab==='exclusions' ? <ExcludedRepositories embedded /> : <div className="space-y-6">
@@ -44,7 +43,6 @@ export const Settings: React.FC = () => {
           <div className="rounded-lg border bg-muted/20 p-4"><h3 className="mb-3 font-semibold">{t('Branding')}</h3><div className="grid gap-4 md:grid-cols-2">
             {[[t('Brand Name'),brandName,setBrandName,120],[t('Login Page Title'),loginTitle,setLoginTitle,160],[t('Home Page Title'),homeTitle,setHomeTitle,160],[t('Home Page Description'),homeDescription,setHomeDescription,500]].map(([label,value,setter,max])=><label key={String(label)} className="text-sm"><span className="mb-1 block font-medium">{label as string}</span><input required maxLength={max as number} value={value as string} onChange={e=>(setter as React.Dispatch<React.SetStateAction<string>>)(e.target.value)} className="w-full rounded-md border bg-background px-3 py-2" /></label>)}
           </div></div>
-          <label className="block text-sm"><span className="mb-2 block font-medium">{t('Skip Recent Days')}</span><input type="number" min="0" value={skipRecentDays} onChange={e=>setSkipRecentDays(Number(e.target.value))} className="w-full max-w-xs rounded-md border bg-background px-3 py-2" /><span className="mt-1 block text-xs text-muted-foreground">{t('Skip repositories scanned within this many days (default: 15)')}</span></label>
           <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={verifiedOnly} onChange={e=>setVerifiedOnly(e.target.checked)}/><span className="font-medium">{t('Verified Secrets Only')}</span></label>
           <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={orgReposOnly} onChange={e=>setOrgReposOnly(e.target.checked)}/><span className="font-medium">{t('Organization Repositories Only')}</span></label>
           <button disabled={updateSettingsMutation.isPending} className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground">{updateSettingsMutation.isPending?t('Saving...'):t('Save Settings')}</button>

@@ -6,6 +6,7 @@ from django.utils import timezone
 from rest_framework.test import APIClient
 
 from core.services.scan_orchestrator import ScanOrchestrator
+from core.models import SystemSettings
 from findings.models import Finding
 from scans.models import Scan
 from .models import AlertDelivery, EmailConfiguration, NotificationChannel
@@ -115,12 +116,15 @@ def test_webhook_rejects_private_or_insecure_targets():
 @pytest.mark.django_db
 def test_channel_test_endpoint_sends_rendered_webhook():
     user = User.objects.create_user(username="webhook-test-user", password="test")
+    settings = SystemSettings.get_settings()
+    settings.brand_name = "Custom Security Monitor"
+    settings.save(update_fields=["brand_name"])
     channel = NotificationChannel.objects.create(
         user=user,
         name="DingTalk",
         channel_type=NotificationChannel.Types.WEBHOOK,
         target="https://hooks.example.com/test",
-        body_template='{"msgtype":"text","text":{"content":"{{event}} {{type}}"}}',
+        body_template='{"msgtype":"text","text":{"content":"{{brand_name}}: {{description}}"}}',
     )
     client = APIClient()
     client.force_authenticate(user)
@@ -132,7 +136,7 @@ def test_channel_test_endpoint_sends_rendered_webhook():
 
     assert response.status_code == 200
     assert post.call_args.kwargs["json"]["text"]["content"] == (
-        "notification.test Notification Test"
+        "Custom Security Monitor: This is a test notification from Custom Security Monitor."
     )
 
 

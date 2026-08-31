@@ -2,7 +2,7 @@ import json
 import subprocess
 import tempfile
 
-from .base import BaseDetectionEngine, DetectionEngineError
+from .base import BaseDetectionEngine, DetectionEngineError, process_error_message
 
 
 class GitleaksEngine(BaseDetectionEngine):
@@ -22,7 +22,9 @@ class GitleaksEngine(BaseDetectionEngine):
                 )
                 payload = json.loads(result.stdout or "[]")
             except (subprocess.SubprocessError, json.JSONDecodeError) as exc:
-                raise DetectionEngineError(f"Gitleaks scan failed: {exc}") from exc
+                raise DetectionEngineError(
+                    f"Gitleaks scan failed: {process_error_message(exc)}"
+                ) from exc
         if not isinstance(payload, list):
             raise DetectionEngineError("Gitleaks returned a non-list report")
         return [{

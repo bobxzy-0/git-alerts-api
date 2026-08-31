@@ -1,4 +1,5 @@
 import json
+import subprocess
 from unittest.mock import Mock, patch
 
 import pytest
@@ -22,6 +23,21 @@ def test_gitleaks_normalizes_report():
     assert finding["type"] == "aws-access-token"
     assert finding["file"] == "config.env"
     assert finding["verified"] is False
+
+
+def test_gitleaks_reports_clone_stderr_and_redacts_credentials():
+    error = subprocess.CalledProcessError(
+        128,
+        ["git", "clone"],
+        stderr="fatal: unable to access 'https://token@example.com/repo': proxy failed",
+    )
+    with patch("subprocess.run", side_effect=error):
+        with pytest.raises(Exception) as exc_info:
+            GitleaksEngine().scan_repository("https://example.com/acme/repo")
+
+    message = str(exc_info.value)
+    assert "proxy failed" in message
+    assert "token" not in message
 
 
 @pytest.mark.django_db

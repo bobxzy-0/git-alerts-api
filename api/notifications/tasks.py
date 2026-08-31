@@ -35,6 +35,7 @@ def _render_template(value, context):
 def send_test_notification(channel):
     """Send a channel test without creating a finding or delivery record."""
     now = timezone.now()
+    brand_name = SystemSettings.get_settings().brand_name
     context = {
         "event": "notification.test",
         "finding_id": "TEST",
@@ -44,7 +45,8 @@ def send_test_notification(channel):
         "source": "github",
         "repository": "https://github.com/example/security-test",
         "type": "Notification Test",
-        "description": "This is a test notification from GitAlerts.",
+        "brand_name": brand_name,
+        "description": f"This is a test notification from {brand_name}.",
         "file": "config/example.env",
         "line": 1,
         "email": "security@example.com",
@@ -70,7 +72,7 @@ def send_test_notification(channel):
             use_ssl=email_config.use_ssl,
         )
         sent = send_mail(
-            f"[TEST] {SystemSettings.get_settings().brand_name}: Notification Test",
+            f"[TEST] {brand_name}: Notification Test",
             "\n".join(f"{key}: {value}" for key, value in context.items()),
             email_config.from_email,
             [channel.target],

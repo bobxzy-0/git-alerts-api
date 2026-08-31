@@ -21,15 +21,16 @@ def test_orchestrator_counts_repository_failures_without_aborting_scan():
     trufflehog_client = Mock()
     trufflehog_client.scan_repository.side_effect = [[], RuntimeError("scanner failed")]
 
-    with patch.object(ScanOrchestrator, "is_recently_scanned", return_value=False):
-        orchestrator = ScanOrchestrator(scan, source_adapter, trufflehog_client)
-        orchestrator.run()
+    orchestrator = ScanOrchestrator(scan, source_adapter, trufflehog_client)
+    orchestrator.run()
 
     assert orchestrator.repository_successes == 1
     assert orchestrator.repository_failures == 1
     scan.refresh_from_db()
     assert scan.total_findings == 2
     assert set(Finding.objects.values_list("type", flat=True)) == {"Repository Match"}
+    failed_record = scan.repositories.get(repository="fails")
+    assert "scanner failed" in failed_record.error_message
 
 
 @pytest.mark.django_db
@@ -63,9 +64,8 @@ def test_one_detection_engine_failure_keeps_other_engine_findings():
     failed.scan_repository.side_effect = RuntimeError("engine unavailable")
     healthy = Mock(name="healthy-engine")
     healthy.scan_repository.return_value = []
-    with patch.object(ScanOrchestrator, "is_recently_scanned", return_value=False):
-        orchestrator = ScanOrchestrator(scan, adapter, detection_engines=[failed, healthy])
-        orchestrator.run()
+    orchestrator = ScanOrchestrator(scan, adapter, detection_engines=[failed, healthy])
+    orchestrator.run()
     assert orchestrator.repository_successes == 1
     assert orchestrator.repository_failures == 1
 
@@ -79,8 +79,7 @@ def test_repository_matches_are_deduplicated_across_scans():
     detector.scan_repository.return_value = []
     for value in ["acme", "acme"]:
         scan = Scan.objects.create(user=user, type=Scan.ScanTypes.SEARCH_REPOS, value=value)
-        with patch.object(ScanOrchestrator, "is_recently_scanned", return_value=False):
-            ScanOrchestrator(scan, adapter, detector).run()
+        ScanOrchestrator(scan, adapter, detector).run()
 
     finding = Finding.objects.get(type="Repository Match")
     assert finding.occurrence_count == 2

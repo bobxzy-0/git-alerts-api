@@ -3,7 +3,7 @@ import subprocess
 import tempfile
 from pathlib import Path
 
-from .base import BaseDetectionEngine, DetectionEngineError
+from .base import BaseDetectionEngine, DetectionEngineError, process_error_message
 
 
 DEFAULT_PATTERNS = [
@@ -28,7 +28,9 @@ class CustomRegexEngine(BaseDetectionEngine):
                 command = ["git"] + (["-c", f"http.proxy={self.proxy_url}"] if self.proxy_url else []) + ["clone", "--quiet", "--depth", "1", repository_url, directory]
                 subprocess.run(command, check=True, timeout=300, capture_output=True, text=True)
             except subprocess.SubprocessError as exc:
-                raise DetectionEngineError(f"Regex engine clone failed: {exc}") from exc
+                raise DetectionEngineError(
+                    f"Regex engine clone failed: {process_error_message(exc)}"
+                ) from exc
             root = Path(directory)
             for path in root.rglob("*"):
                 if not path.is_file() or ".git" in path.parts or path.stat().st_size > 2_000_000:
