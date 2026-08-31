@@ -1,6 +1,5 @@
 import ipaddress
 import json
-from datetime import timedelta
 from urllib.parse import urlparse
 
 import requests
@@ -15,9 +14,8 @@ from .models import AlertDelivery, EmailConfiguration, NotificationChannel
 
 
 def _scheduled_for(finding, now):
-    if finding.severity in {Finding.Severity.CRITICAL, Finding.Severity.HIGH}: return now
-    if finding.severity == Finding.Severity.MEDIUM: return now.replace(minute=0, second=0, microsecond=0) + timedelta(hours=1)
-    return (now + timedelta(days=1)).replace(hour=8, minute=0, second=0, microsecond=0)
+    """Every finding is delivered as soon as its scan has finished."""
+    return now
 
 
 def _template_context(finding):
@@ -34,9 +32,64 @@ def _render_template(value, context):
     return value
 
 
+def send_test_notification(channel):
+    """Send a channel test without creating a finding or delivery record."""
+    now = timezone.now()
+    context = {
+        "event": "notification.test",
+        "finding_id": "TEST",
+        "status": "TEST",
+        "review_status": "TEST",
+        "severity": "INFO",
+        "source": "github",
+        "repository": "https://github.com/example/security-test",
+        "type": "Notification Test",
+        "description": "This is a test notification from GitAlerts.",
+        "file": "config/example.env",
+        "line": 1,
+        "email": "security@example.com",
+        "commit_hash": "test-commit",
+        "commit_url": "https://github.com/example/security-test/commit/test",
+        "value_preview": "test-value",
+        "last_seen_at": now.isoformat(),
+    }
+
+    if channel.channel_type == NotificationChannel.Types.EMAIL:
+        email_config = EmailConfiguration.objects.filter(
+            user=channel.user, enabled=True
+        ).first()
+        if email_config is None:
+            raise ValueError("Email sender is not configured or enabled.")
+        connection = get_connection(
+            backend="django.core.mail.backends.smtp.EmailBackend",
+            host=email_config.host,
+            port=email_config.port,
+            username=email_config.username,
+            password=email_config.get_password(),
+            use_tls=email_config.use_tls,
+            use_ssl=email_config.use_ssl,
+        )
+        sent = send_mail(
+            f"[TEST] {SystemSettings.get_settings().brand_name}: Notification Test",
+            "\n".join(f"{key}: {value}" for key, value in context.items()),
+            email_config.from_email,
+            [channel.target],
+            connection=connection,
+        )
+        if sent != 1:
+            raise RuntimeError("The mail server did not accept the test message.")
+    else:
+        request_body = (
+            _render_template(json.loads(channel.body_template), context)
+            if channel.body_template else context
+        )
+        requests.post(channel.target, json=request_body, timeout=(5, 15)).raise_for_status()
+
+
 @shared_task(ignore_result=True)
 def queue_scan_alerts(scan_id):
-    now=timezone.now(); occurrences=FindingOccurrence.objects.select_related("finding","scan").filter(scan_id=scan_id,finding__lifecycle_status__in=[Finding.LifecycleStatus.NEW,Finding.LifecycleStatus.REOPENED],finding__review_status=Finding.ReviewStatus.OPEN)
+    now=timezone.now()
+    occurrences=FindingOccurrence.objects.select_related("finding","scan").filter(scan_id=scan_id)
     created=0
     for occurrence in occurrences:
         for channel in NotificationChannel.objects.filter(user=occurrence.scan.user,enabled=True):

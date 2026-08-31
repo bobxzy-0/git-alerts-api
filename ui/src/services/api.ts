@@ -102,6 +102,12 @@ export const notificationChannelsApi = {
   delete: async (id: number): Promise<void> => {
     await apiClient.delete(`/notifications/channels/${id}/`);
   },
+  test: async (id: number): Promise<{ message: string }> =>
+    (
+      await apiClient.post<{ message: string }>(
+        `/notifications/channels/${id}/test/`,
+      )
+    ).data,
 };
 export const emailConfigurationApi = {
   get: async (): Promise<EmailConfiguration> =>

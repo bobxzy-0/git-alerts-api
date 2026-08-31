@@ -2,9 +2,11 @@ from unittest.mock import Mock, patch
 
 import pytest
 from django.contrib.auth.models import User
+from django.utils import timezone
 from rest_framework.test import APIClient
 
 from core.services.scan_orchestrator import ScanOrchestrator
+from core.models import RepoScanHistory
 from core.sources import RepositoryTarget
 from scans.models import ExcludedRepository, RepositoryScanQueue, Scan, ScanRepository
 from scans.services.repositories import normalize_repository_url
@@ -87,3 +89,19 @@ def test_scan_repository_api_only_returns_owned_scan():
     client.force_authenticate(user)
     assert client.get(f"/scans/{own_scan.pk}/repositories/").status_code == 200
     assert client.get(f"/scans/{other_scan.pk}/repositories/").status_code == 404
+
+
+@pytest.mark.django_db
+def test_skipped_history_does_not_keep_repository_skipped_forever():
+    user = User.objects.create_user(username="skip-history-user")
+    scan = Scan.objects.create(user=user, source="github", value="acme")
+    repository_url = "https://github.com/acme/repo"
+    RepoScanHistory.objects.create(
+        repository=repository_url,
+        status=RepoScanHistory.ScanStatus.SKIPPED,
+        completed_at=timezone.now(),
+    )
+
+    orchestrator = ScanOrchestrator(scan, Mock(), Mock())
+
+    assert orchestrator.is_recently_scanned(repository_url) is False

@@ -232,7 +232,10 @@ class ScanOrchestrator:
         """Check if repository was recently scanned"""
         days = timezone.now() - timedelta(days=self.skip_recent_days)
         last_history = (
-            RepoScanHistory.objects.filter(repository=repo_url)
+            RepoScanHistory.objects.filter(
+                repository=repo_url,
+                status=RepoScanHistory.ScanStatus.COMPLETED,
+            )
             .order_by("-completed_at")
             .first()
         )

@@ -29,16 +29,29 @@ def test_queue_only_creates_one_delivery_per_occurrence(finding_and_channel):
         assert queue_scan_alerts(scan.pk) == 1
         assert queue_scan_alerts(scan.pk) == 0
     delivery = AlertDelivery.objects.get(channel=channel, finding=finding)
-    assert delivery.scheduled_for > timezone.now()
+    assert delivery.scheduled_for <= timezone.now()
 
 
 @pytest.mark.django_db
-def test_resolved_finding_is_not_notified(finding_and_channel):
+def test_resolved_finding_observed_by_scan_is_notified(finding_and_channel):
     scan, finding, _ = finding_and_channel
     finding.lifecycle_status = Finding.LifecycleStatus.RESOLVED
     finding.save(update_fields=["lifecycle_status"])
     with patch("notifications.tasks.send_due_alerts.delay"):
+        assert queue_scan_alerts(scan.pk) == 1
+
+
+@pytest.mark.django_db
+def test_scan_without_findings_does_not_create_deliveries():
+    user = User.objects.create_user(username="empty-scan-user", password="test-password")
+    scan = Scan.objects.create(user=user, type="org_repos", value="example")
+    NotificationChannel.objects.create(
+        user=user, name="Security", channel_type="email", target="security@example.com"
+    )
+
+    with patch("notifications.tasks.send_due_alerts.delay"):
         assert queue_scan_alerts(scan.pk) == 0
+    assert not AlertDelivery.objects.exists()
 
 
 @pytest.mark.django_db
@@ -97,3 +110,45 @@ def test_webhook_rejects_private_or_insecure_targets():
     with pytest.raises(ValueError): validate_webhook_target("http://example.com/hook")
     with pytest.raises(ValueError): validate_webhook_target("https://127.0.0.1/hook")
     validate_webhook_target("https://hooks.example.com/gitalerts")
+
+
+@pytest.mark.django_db
+def test_channel_test_endpoint_sends_rendered_webhook():
+    user = User.objects.create_user(username="webhook-test-user", password="test")
+    channel = NotificationChannel.objects.create(
+        user=user,
+        name="DingTalk",
+        channel_type=NotificationChannel.Types.WEBHOOK,
+        target="https://hooks.example.com/test",
+        body_template='{"msgtype":"text","text":{"content":"{{event}} {{type}}"}}',
+    )
+    client = APIClient()
+    client.force_authenticate(user)
+    response_mock = Mock()
+    response_mock.raise_for_status.return_value = None
+
+    with patch("notifications.tasks.requests.post", return_value=response_mock) as post:
+        response = client.post(f"/notifications/channels/{channel.pk}/test/")
+
+    assert response.status_code == 200
+    assert post.call_args.kwargs["json"]["text"]["content"] == (
+        "notification.test Notification Test"
+    )
+
+
+@pytest.mark.django_db
+def test_channel_test_endpoint_cannot_access_another_users_channel():
+    owner = User.objects.create_user(username="channel-owner", password="test")
+    other = User.objects.create_user(username="other-user", password="test")
+    channel = NotificationChannel.objects.create(
+        user=owner,
+        name="Security",
+        channel_type=NotificationChannel.Types.EMAIL,
+        target="security@example.com",
+    )
+    client = APIClient()
+    client.force_authenticate(other)
+
+    response = client.post(f"/notifications/channels/{channel.pk}/test/")
+
+    assert response.status_code == 404
