@@ -65,33 +65,16 @@ class Scan(models.Model):
         "MonitorRule", null=True, blank=True, on_delete=models.SET_NULL,
         related_name="scans",
     )
-    execution_status = models.CharField(
-        max_length=32,
-        choices=ExecutionStatus.choices,
-        default=ExecutionStatus.QUEUED,
-    )
-    monitoring_status = models.CharField(
-        max_length=32,
-        choices=MonitoringStatus.choices,
-        default=MonitoringStatus.UNKNOWN,
-    )
-    result_status = models.CharField(
-        max_length=32,
-        choices=ResultStatus.choices,
-        null=True,
-        blank=True,
-    )
+    execution_status = models.CharField(max_length=32, choices=ExecutionStatus.choices, default=ExecutionStatus.QUEUED)
+    monitoring_status = models.CharField(max_length=32, choices=MonitoringStatus.choices, default=MonitoringStatus.UNKNOWN)
+    result_status = models.CharField(max_length=32, choices=ResultStatus.choices, null=True, blank=True)
     error_code = models.CharField(max_length=64, blank=True, default="")
     error_message = models.TextField(blank=True, default="")
-
     total_repositories = models.IntegerField(default=0)
     total_findings = models.IntegerField(default=0)
-
     ignored_repositories = models.IntegerField(default=0)
     ignored_findings = models.IntegerField(default=0)
-
     scanned_repositories = models.IntegerField(default=0)
-    
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     started_at = models.DateTimeField(null=True, blank=True)
@@ -142,9 +125,7 @@ class MonitorRule(models.Model):
     next_run_at = models.DateTimeField(null=True, blank=True, db_index=True)
     is_running = models.BooleanField(default=False, db_index=True)
     locked_at = models.DateTimeField(null=True, blank=True)
-    last_scan = models.ForeignKey(
-        Scan, on_delete=models.SET_NULL, null=True, blank=True, related_name="monitor_rule_runs"
-    )
+    last_scan = models.ForeignKey(Scan, on_delete=models.SET_NULL, null=True, blank=True, related_name="monitor_rule_runs")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -162,9 +143,6 @@ class MonitorRule(models.Model):
 
     class Meta:
         ordering = ["name"]
-        constraints = [
-            models.UniqueConstraint(fields=["user", "name"], name="unique_monitor_rule_name_per_user")
-        ]
 
 
 class MonitoringProfile(models.Model):
