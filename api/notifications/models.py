@@ -36,6 +36,7 @@ class NotificationChannel(models.Model):
     channel_type = models.CharField(max_length=16, choices=Types.choices)
     target = models.CharField(max_length=2048)
     secret_encrypted = models.TextField(blank=True, default="")
+    body_template = models.TextField(blank=True, default="")
     enabled = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
