@@ -1,4 +1,5 @@
 import ipaddress
+import json
 from datetime import timedelta
 from urllib.parse import urlparse
 
@@ -19,6 +20,40 @@ def _scheduled_for(finding, now):
     if finding.severity == Finding.Severity.MEDIUM:
         return now.replace(minute=0, second=0, microsecond=0) + timedelta(hours=1)
     return (now + timedelta(days=1)).replace(hour=8, minute=0, second=0, microsecond=0)
+
+
+def _template_context(finding):
+    return {
+        "event": "finding.detected",
+        "finding_id": finding.id,
+        "status": finding.lifecycle_status,
+        "review_status": finding.review_status,
+        "severity": finding.severity,
+        "source": finding.source,
+        "repository": finding.repository,
+        "type": finding.type,
+        "description": finding.description,
+        "file": finding.file,
+        "line": finding.line,
+        "email": finding.email,
+        "commit_hash": finding.commit_hash,
+        "commit_url": finding.commit_url or "",
+        "value_preview": finding.value,
+        "last_seen_at": finding.last_seen_at.isoformat(),
+    }
+
+
+def _render_template(value, context):
+    if isinstance(value, dict):
+        return {key: _render_template(item, context) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_render_template(item, context) for item in value]
+    if isinstance(value, str):
+        rendered = value
+        for key, item in context.items():
+            rendered = rendered.replace("{{" + key + "}}", "" if item is None else str(item))
+        return rendered
+    return value
 
 
 @shared_task(ignore_result=True)
@@ -56,18 +91,7 @@ def send_alert_delivery(delivery_id):
     if delivery.status == AlertDelivery.Status.SENT or not delivery.channel.enabled:
         return
     finding = delivery.finding
-    payload = {
-        "event": "finding.detected",
-        "finding_id": finding.id,
-        "status": finding.lifecycle_status,
-        "severity": finding.severity,
-        "source": finding.source,
-        "repository": finding.repository,
-        "type": finding.type,
-        "file": finding.file,
-        "value_preview": finding.value,
-        "last_seen_at": finding.last_seen_at.isoformat(),
-    }
+    payload = _template_context(finding)
     try:
         if delivery.channel.channel_type == NotificationChannel.Types.EMAIL:
             email_config = EmailConfiguration.objects.filter(user=delivery.channel.user, enabled=True).first()
@@ -92,7 +116,12 @@ def send_alert_delivery(delivery_id):
                 connection=connection,
             )
         else:
-            requests.post(delivery.channel.target, json=payload, timeout=(5, 15)).raise_for_status()
+            if delivery.channel.body_template:
+                template = json.loads(delivery.channel.body_template)
+                request_body = _render_template(template, payload)
+            else:
+                request_body = payload
+            requests.post(delivery.channel.target, json=request_body, timeout=(5, 15)).raise_for_status()
         delivery.status = AlertDelivery.Status.SENT
         delivery.sent_at = timezone.now()
         delivery.last_error = ""
