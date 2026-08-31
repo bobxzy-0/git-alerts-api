@@ -6,8 +6,8 @@ import { findingsApi, scansApi } from '@/services/api';
 import { useLanguage } from '@/i18n/LanguageContext';
 import type { Finding } from '@/types';
 
-const reviewLabels: Record<Finding['review_status'], string> = { OPEN:'Pending review', CONFIRMED:'Confirmed issue', NOT_AN_ISSUE:'Not an issue', IGNORED:'Ignored', SKIPPED:'Skipped for now' };
-const reviewClasses: Record<Finding['review_status'], string> = { OPEN:'bg-yellow-500/10 text-yellow-600', CONFIRMED:'bg-red-500/10 text-red-600', NOT_AN_ISSUE:'bg-slate-500/10 text-slate-600', IGNORED:'bg-purple-500/10 text-purple-600', SKIPPED:'bg-blue-500/10 text-blue-600' };
+const reviewLabels: Record<Finding['review_status'], string> = { OPEN:'Pending review', CONFIRMED:'Confirmed issue', FALSE_POSITIVE:'False positive', IGNORED:'Ignored', RESOLVED:'Resolved' };
+const reviewClasses: Record<Finding['review_status'], string> = { OPEN:'bg-yellow-500/10 text-yellow-600', CONFIRMED:'bg-red-500/10 text-red-600', FALSE_POSITIVE:'bg-slate-500/10 text-slate-600', IGNORED:'bg-purple-500/10 text-purple-600', RESOLVED:'bg-emerald-500/10 text-emerald-600' };
 
 export const Findings: React.FC = () => {
   const { t } = useLanguage(); const qc = useQueryClient(); const navigate = useNavigate(); const [params,setParams] = useSearchParams();
