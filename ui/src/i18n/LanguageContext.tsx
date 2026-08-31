@@ -8,7 +8,7 @@ const LanguageContext = createContext<LanguageContextValue | null>(null);
 const originalText = new WeakMap<Text, string>();
 const originalAttributes = new WeakMap<Element, Map<string, string>>();
 const extraZhCN: Record<string,string> = {
-  'Review Status':'处置状态','Pending review':'待处理','Confirmed issue':'已确认问题','Not an issue':'不是问题','Ignored':'已忽略','Skipped for now':'暂时跳过',
+  'Review Status':'处置状态','Pending review':'待处理','Confirmed issue':'已确认问题','False positive':'误报','Ignored':'已忽略','Resolved':'已解决',
   'Validation':'验证状态','Webhook Template':'Webhook 模板','Custom template':'自定义模板','Default JSON payload':'默认 JSON 数据',
   'Valid JSON. Use placeholders: {{severity}}, {{type}}, {{repository}}, {{file}}, {{line}}, {{description}}, {{commit_hash}}, {{commit_url}}, {{value_preview}}, {{last_seen_at}}.':'必须是有效 JSON，可使用占位符：{{severity}}、{{type}}、{{repository}}、{{file}}、{{line}}、{{description}}、{{commit_hash}}、{{commit_url}}、{{value_preview}}、{{last_seen_at}}。',
   'selected':'已选择','Delete selected findings?':'确定删除选中的发现项吗？','Delete Finding?':'确定删除该发现项吗？','Severity':'风险等级','Description':'描述','File':'文件','Line':'行','Secret Value':'敏感值','STARTTLS':'STARTTLS','SSL':'SSL','Scan ID':'扫描 ID'

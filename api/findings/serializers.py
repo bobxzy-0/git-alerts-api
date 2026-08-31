@@ -14,14 +14,15 @@ class FindingSerializer(serializers.ModelSerializer):
 
     def update(self, instance, validated_data):
         review_status = validated_data.get("review_status")
-        if review_status == Finding.ReviewStatus.CONFIRMED:
-            validated_data["lifecycle_status"] = Finding.LifecycleStatus.ACKNOWLEDGED
-        elif review_status == Finding.ReviewStatus.NOT_AN_ISSUE:
-            validated_data["lifecycle_status"] = Finding.LifecycleStatus.FALSE_POSITIVE
-        elif review_status == Finding.ReviewStatus.IGNORED:
-            validated_data["lifecycle_status"] = Finding.LifecycleStatus.IGNORED
-        elif review_status == Finding.ReviewStatus.OPEN:
-            validated_data["lifecycle_status"] = Finding.LifecycleStatus.ACTIVE
+        lifecycle_map = {
+            Finding.ReviewStatus.CONFIRMED: Finding.LifecycleStatus.ACKNOWLEDGED,
+            Finding.ReviewStatus.FALSE_POSITIVE: Finding.LifecycleStatus.FALSE_POSITIVE,
+            Finding.ReviewStatus.IGNORED: Finding.LifecycleStatus.IGNORED,
+            Finding.ReviewStatus.RESOLVED: Finding.LifecycleStatus.RESOLVED,
+            Finding.ReviewStatus.OPEN: Finding.LifecycleStatus.ACTIVE,
+        }
+        if review_status in lifecycle_map:
+            validated_data["lifecycle_status"] = lifecycle_map[review_status]
         return super().update(instance, validated_data)
 
 class IgnoreFindingTypeSerializer(serializers.ModelSerializer):
