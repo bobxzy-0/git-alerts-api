@@ -14,11 +14,11 @@ class Finding(models.Model):
         FALSE_POSITIVE = "FALSE_POSITIVE", "False Positive"
 
     class ReviewStatus(models.TextChoices):
-        OPEN = "OPEN", "Open / Pending review"
+        OPEN = "OPEN", "Pending review"
         CONFIRMED = "CONFIRMED", "Confirmed issue"
-        NOT_AN_ISSUE = "NOT_AN_ISSUE", "Not an issue"
+        FALSE_POSITIVE = "FALSE_POSITIVE", "False positive"
         IGNORED = "IGNORED", "Ignored"
-        SKIPPED = "SKIPPED", "Skipped for now"
+        RESOLVED = "RESOLVED", "Resolved"
 
     class Severity(models.TextChoices):
         CRITICAL = "CRITICAL", "Critical"
@@ -59,7 +59,6 @@ class Finding(models.Model):
         verbose_name = "Finding"
         verbose_name_plural = "Findings"
         ordering = ["-created_at"]
-
 
 class FindingOccurrence(models.Model):
     finding = models.ForeignKey(Finding, on_delete=models.CASCADE, related_name="occurrences")
