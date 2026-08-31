@@ -32,10 +32,13 @@ class FindingBulkDeleteView(APIView):
         deleted = 0
         for start in range(0, len(ids), self.chunk_size):
             chunk = ids[start : start + self.chunk_size]
-            queryset = Finding.objects.filter(
-                id__in=chunk,
-                occurrences__scan__user=request.user,
-            ).distinct()
-            deleted += queryset.count()
-            queryset.delete()
+            owned_ids = list(
+                Finding.objects.filter(
+                    id__in=chunk,
+                    occurrences__scan__user=request.user,
+                ).values_list("id", flat=True).distinct()
+            )
+            if owned_ids:
+                deleted += len(owned_ids)
+                Finding.objects.filter(id__in=owned_ids).delete()
         return Response({"deleted": deleted})
