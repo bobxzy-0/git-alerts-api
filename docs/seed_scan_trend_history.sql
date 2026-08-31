@@ -5,7 +5,7 @@
 
 INSERT INTO scans_scan (
     user_id, type, value, source, trigger_type,
-    execution_status, monitoring_status, result_status,
+    execution_status, monitoring_status, result_status, error_code,
     total_repositories, total_findings, ignored_repositories,
     ignored_findings, scanned_repositories,
     created_at, updated_at, started_at, completed_at
@@ -19,6 +19,7 @@ SELECT
     'SUCCESS',
     'HEALTHY',
     'HEALTHY_NO_FINDINGS',
+    '',
     0, 0, 0, 0, 0,
     gs + make_interval(hours => ((u.id + EXTRACT(day FROM gs)::int) % 10)),
     gs + make_interval(hours => ((u.id + EXTRACT(day FROM gs)::int) % 10)),
