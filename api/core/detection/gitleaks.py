@@ -2,7 +2,7 @@ import json
 import subprocess
 import tempfile
 
-from .base import BaseDetectionEngine, DetectionEngineError, process_error_message
+from .base import BaseDetectionEngine, DetectionEngineError, git_clone, process_error_message
 
 
 class GitleaksEngine(BaseDetectionEngine):
@@ -14,14 +14,15 @@ class GitleaksEngine(BaseDetectionEngine):
     def scan_repository(self, repository_url, *, only_verified=True):
         with tempfile.TemporaryDirectory(prefix="gitalerts-gitleaks-") as directory:
             try:
-                command = ["git"] + (["-c", f"http.proxy={self.proxy_url}"] if self.proxy_url else []) + ["clone", "--quiet", "--mirror", repository_url, directory]
-                subprocess.run(command, check=True, timeout=300, capture_output=True, text=True)
+                git_clone(
+                    repository_url, directory, proxy_url=self.proxy_url, mirror=True
+                )
                 result = subprocess.run(
                     ["gitleaks", "git", directory, "--report-format", "json", "--report-path", "-", "--exit-code", "0"],
                     check=True, timeout=600, capture_output=True, text=True,
                 )
                 payload = json.loads(result.stdout or "[]")
-            except (subprocess.SubprocessError, json.JSONDecodeError) as exc:
+            except (subprocess.SubprocessError, json.JSONDecodeError, DetectionEngineError) as exc:
                 raise DetectionEngineError(
                     f"Gitleaks scan failed: {process_error_message(exc)}"
                 ) from exc

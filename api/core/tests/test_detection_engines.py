@@ -7,6 +7,7 @@ from django.contrib.auth.models import User
 from rest_framework.test import APIClient
 
 from core.detection.gitleaks import GitleaksEngine
+from core.detection.base import git_clone, git_network_environment
 from core.detection.registry import get_detection_engines
 from core.detection.regex import CustomRegexEngine
 from core.models import DetectionPattern
@@ -38,6 +39,27 @@ def test_gitleaks_reports_clone_stderr_and_redacts_credentials():
     message = str(exc_info.value)
     assert "proxy failed" in message
     assert "token" not in message
+
+
+def test_git_clone_retries_and_forces_http_1_1(tmp_path):
+    transient = subprocess.CalledProcessError(
+        128, ["git", "clone"], stderr="GnuTLS recv error (-110)"
+    )
+    success = Mock(stdout="")
+    with patch("core.detection.base.subprocess.run", side_effect=[transient, success]) as run, \
+         patch("core.detection.base.time.sleep") as sleep:
+        git_clone("https://github.com/acme/repo", tmp_path / "repo")
+
+    assert run.call_count == 2
+    assert "http.version=HTTP/1.1" in run.call_args.args[0]
+    sleep.assert_called_once_with(1)
+
+
+def test_trufflehog_git_environment_forces_http_1_1():
+    environment = git_network_environment({"PATH": "/usr/bin"})
+
+    assert environment["GIT_CONFIG_KEY_0"] == "http.version"
+    assert environment["GIT_CONFIG_VALUE_0"] == "HTTP/1.1"
 
 
 @pytest.mark.django_db

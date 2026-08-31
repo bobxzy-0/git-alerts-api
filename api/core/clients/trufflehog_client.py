@@ -5,7 +5,7 @@ from logging import getLogger
 
 logger = getLogger(__name__)
 
-from core.detection.base import process_error_message
+from core.detection.base import git_network_environment, process_error_message
 
 
 class TruffleHogClient:
@@ -37,12 +37,21 @@ class TruffleHogClient:
             if only_verified:
                 tf_command.append("--only-verified")
 
-            proxy_env = os.environ.copy()
+            proxy_env = git_network_environment(os.environ)
             if self.proxy_url:
                 proxy_env.update({"HTTP_PROXY": self.proxy_url, "HTTPS_PROXY": self.proxy_url, "ALL_PROXY": self.proxy_url})
-            tf_command_output = subprocess.run(
-                tf_command, check=True, timeout=600, capture_output=True, text=True, env=proxy_env
-            )
+            tf_command_output = None
+            for attempt in range(1, 3):
+                try:
+                    tf_command_output = subprocess.run(
+                        tf_command, check=True, timeout=600,
+                        capture_output=True, text=True, env=proxy_env,
+                    )
+                    break
+                except (subprocess.CalledProcessError, subprocess.TimeoutExpired):
+                    if attempt == 2:
+                        raise
+            assert tf_command_output is not None
 
             for line in tf_command_output.stdout.splitlines():
                 if line.strip():
