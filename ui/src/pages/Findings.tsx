@@ -1,32 +1,463 @@
-import React, { useState } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, CheckCircle2, CircleOff, Eye, Filter, Trash2, X } from 'lucide-react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
-import { findingsApi, scansApi } from '@/services/api';
-import { useLanguage } from '@/i18n/LanguageContext';
-import type { Finding } from '@/types';
+import React, { useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  ArrowLeft,
+  CheckCircle2,
+  CircleOff,
+  Eye,
+  Filter,
+  Trash2,
+  X,
+} from "lucide-react";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { findingsApi, scansApi } from "@/services/api";
+import { useLanguage } from "@/i18n/LanguageContext";
+import type { Finding } from "@/types";
+import { Pagination } from "@/components/Pagination";
 
-const reviewLabels: Record<Finding['review_status'], string> = { OPEN:'Pending review', CONFIRMED:'Confirmed issue', FALSE_POSITIVE:'False positive', IGNORED:'Ignored', RESOLVED:'Resolved' };
-const reviewClasses: Record<Finding['review_status'], string> = { OPEN:'bg-yellow-500/10 text-yellow-600', CONFIRMED:'bg-red-500/10 text-red-600', FALSE_POSITIVE:'bg-slate-500/10 text-slate-600', IGNORED:'bg-purple-500/10 text-purple-600', RESOLVED:'bg-emerald-500/10 text-emerald-600' };
+const PAGE_SIZE = 20;
+
+const reviewLabels: Record<Finding["review_status"], string> = {
+  OPEN: "Pending review",
+  CONFIRMED: "Confirmed issue",
+  FALSE_POSITIVE: "False positive",
+  IGNORED: "Ignored",
+  RESOLVED: "Resolved",
+};
+const reviewClasses: Record<Finding["review_status"], string> = {
+  OPEN: "bg-yellow-500/10 text-yellow-600",
+  CONFIRMED: "bg-red-500/10 text-red-600",
+  FALSE_POSITIVE: "bg-slate-500/10 text-slate-600",
+  IGNORED: "bg-purple-500/10 text-purple-600",
+  RESOLVED: "bg-emerald-500/10 text-emerald-600",
+};
 
 export const Findings: React.FC = () => {
-  const { t } = useLanguage(); const qc = useQueryClient(); const navigate = useNavigate(); const [params,setParams] = useSearchParams();
-  const [selected,setSelected] = useState<Finding|null>(null); const [showFilters,setShowFilters] = useState(false); const [selectedIds,setSelectedIds] = useState<Set<number>>(new Set());
-  const filters = { type:params.get('type')||undefined, value:params.get('value')||undefined, email:params.get('email')||undefined, repository:params.get('repository')||undefined, scan:params.get('scan')?Number(params.get('scan')):undefined, validated:params.get('validated')?params.get('validated')==='true':undefined, review_status:params.get('review_status')||undefined, created_at:params.get('created_at')||undefined };
-  const { data: findings=[], isLoading } = useQuery({queryKey:['findings',filters],queryFn:()=>findingsApi.list(filters),refetchInterval:5000,refetchIntervalInBackground:false,staleTime:0});
-  const sourceScanId=params.get('from')==='scans'&&params.get('scan')?Number(params.get('scan')):undefined; const returnTo=params.get('returnTo')||'/scans?tab=history';
-  const {data:sourceScan}=useQuery({queryKey:['scan',sourceScanId],queryFn:()=>scansApi.get(sourceScanId!),enabled:sourceScanId!==undefined,refetchInterval:5000});
-  const update=useMutation({mutationFn:({id,status}:{id:number;status:Finding['review_status']})=>findingsApi.update(id,{review_status:status}),onSuccess:(_,v)=>{qc.invalidateQueries({queryKey:['findings']});if(selected)setSelected({...selected,review_status:v.status});}});
-  const remove=useMutation({mutationFn:findingsApi.delete,onSuccess:()=>{qc.invalidateQueries({queryKey:['findings']});setSelected(null);}});
-  const bulkRemove=useMutation({mutationFn:(ids:number[])=>findingsApi.bulkDelete(ids),onSuccess:()=>{qc.invalidateQueries({queryKey:['findings']});setSelectedIds(new Set());}});
-  const toggle=(id:number)=>setSelectedIds(s=>{const n=new Set(s);n.has(id)?n.delete(id):n.add(id);return n});
-  const clear=()=>{setSelectedIds(new Set());setParams(sourceScanId?{from:'scans',returnTo,scan:String(sourceScanId)}:{})};
-  const apply=(e:React.FormEvent<HTMLFormElement>)=>{e.preventDefault();const fd=new FormData(e.currentTarget);const next=new URLSearchParams();if(sourceScanId){next.set('from','scans');next.set('returnTo',returnTo);next.set('scan',String(sourceScanId));}['type','value','email','repository','scan','validated','review_status','created_at'].forEach(k=>{const v=String(fd.get(k)||'');if(v)next.set(k,v)});setParams(next);setShowFilters(false)};
-  return <div className="space-y-5">
-    {sourceScanId&&<div className="rounded-xl border bg-card p-4 shadow-sm"><button onClick={()=>navigate(returnTo)} className="inline-flex items-center gap-1 text-sm font-medium text-primary"><ArrowLeft className="h-4 w-4"/>{t('Back to Task History')}</button><div className="mt-3 flex items-center justify-between"><div><h2 className="font-semibold">Scan #{sourceScanId}</h2><p className="text-sm text-muted-foreground">{sourceScan?`${sourceScan.source} · ${sourceScan.value}`:t('Loading scan information...')}</p></div><strong className="text-2xl">{findings.length}</strong></div></div>}
-    <div className="flex items-center justify-between gap-3"><div>{selectedIds.size>0&&<span className="text-sm text-muted-foreground">{selectedIds.size} {t('selected')}</span>}</div><div className="flex gap-2">{selectedIds.size>0&&<button disabled={bulkRemove.isPending} onClick={()=>{if(confirm(t('Delete selected findings?')))bulkRemove.mutate([...selectedIds])}} className="inline-flex items-center gap-2 rounded-lg bg-destructive px-4 py-2 text-sm text-destructive-foreground disabled:opacity-50"><Trash2 className="h-4 w-4"/>{bulkRemove.isPending?t('Deleting...'):t('Delete Selected')}</button>}<button onClick={()=>setShowFilters(!showFilters)} className="inline-flex items-center gap-2 rounded-lg border px-4 py-2 text-sm"><Filter className="h-4 w-4"/>{showFilters?t('Hide Filters'):t('Show Filters')}</button></div></div>
-    {showFilters&&<form onSubmit={apply} className="rounded-xl border bg-card p-5"><div className="grid gap-3 md:grid-cols-3">{[['type','Type'],['repository','Repository'],['email','Email'],['value','Value'],['scan','Scan ID'],['created_at','Created Date']].map(([name,label])=><label key={name} className="text-sm"><span className="mb-1 block font-medium">{t(label)}</span><input name={name} type={name==='created_at'?'date':name==='scan'?'number':'text'} defaultValue={params.get(name)||''} className="w-full rounded-md border bg-background px-3 py-2"/></label>)}<label className="text-sm"><span className="mb-1 block font-medium">{t('Review Status')}</span><select name="review_status" defaultValue={params.get('review_status')||''} className="w-full rounded-md border bg-background px-3 py-2"><option value="">{t('All')}</option>{Object.entries(reviewLabels).map(([k,v])=><option key={k} value={k}>{t(v)}</option>)}</select></label><label className="text-sm"><span className="mb-1 block font-medium">{t('Validation')}</span><select name="validated" defaultValue={params.get('validated')||''} className="w-full rounded-md border bg-background px-3 py-2"><option value="">{t('All')}</option><option value="true">{t('VALIDATED')}</option><option value="false">{t('UNVALIDATED')}</option></select></label></div><div className="mt-4 flex gap-2"><button className="rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground">{t('Apply Filters')}</button><button type="button" onClick={clear} className="rounded-lg border px-4 py-2 text-sm">{t('Clear All')}</button></div></form>}
-    {isLoading?<div className="rounded-xl border p-8 text-center text-muted-foreground">{t('Loading...')}</div>:findings.length===0?<div className="rounded-xl border border-dashed p-10 text-center text-muted-foreground">{t('No findings yet')}</div>:<div className="overflow-hidden rounded-xl border bg-card"><div className="overflow-x-auto"><table className="w-full text-sm"><thead className="bg-muted"><tr><th className="w-12 px-4 py-3"><input type="checkbox" checked={selectedIds.size===findings.length} onChange={()=>setSelectedIds(selectedIds.size===findings.length?new Set():new Set(findings.map(f=>f.id)))}/></th><th className="px-4 py-3 text-left">{t('Type')}</th><th className="px-4 py-3 text-left">{t('Repository')}</th><th className="px-4 py-3 text-left">{t('Severity')}</th><th className="px-4 py-3 text-left">{t('Review Status')}</th><th className="px-4 py-3 text-left">{t('Validated')}</th><th className="px-4 py-3 text-right">{t('Actions')}</th></tr></thead><tbody className="divide-y">{findings.map(f=><tr key={f.id} className="hover:bg-muted/40"><td className="px-4 py-3"><input type="checkbox" checked={selectedIds.has(f.id)} onChange={()=>toggle(f.id)}/></td><td className="px-4 py-3 font-medium">{f.type}</td><td className="max-w-sm truncate px-4 py-3 text-primary">{f.repository}</td><td className="px-4 py-3"><span className="rounded-full bg-muted px-2 py-1 text-xs">{f.severity}</span></td><td className="px-4 py-3"><span className={`rounded-full px-2 py-1 text-xs font-medium ${reviewClasses[f.review_status]}`}>{t(reviewLabels[f.review_status])}</span></td><td className="px-4 py-3">{f.validated?<CheckCircle2 className="h-4 w-4 text-emerald-600"/>:<CircleOff className="h-4 w-4 text-yellow-600"/>}</td><td className="px-4 py-3 text-right"><button onClick={()=>setSelected(f)} className="inline-flex items-center gap-1 text-primary"><Eye className="h-4 w-4"/>{t('Details')}</button></td></tr>)}</tbody></table></div></div>}
-    {selected&&<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"><div className="max-h-[85vh] w-full max-w-3xl overflow-y-auto rounded-xl border bg-card shadow-xl"><div className="flex items-center justify-between border-b p-5"><div><h2 className="text-xl font-bold">{selected.type}</h2><p className="text-xs text-muted-foreground">{selected.repository}</p></div><button onClick={()=>setSelected(null)}><X/></button></div><div className="space-y-5 p-5"><div className="grid gap-4 sm:grid-cols-2"><div><p className="text-xs text-muted-foreground">{t('Severity')}</p><p className="font-medium">{selected.severity}</p></div><div><p className="text-xs text-muted-foreground">{t('Validation')}</p><p className="font-medium">{selected.validated?t('VALIDATED'):t('UNVALIDATED')}</p></div></div><div><p className="text-xs text-muted-foreground">{t('Review Status')}</p><select value={selected.review_status} onChange={e=>update.mutate({id:selected.id,status:e.target.value as Finding['review_status']})} className="mt-1 w-full rounded-md border bg-background px-3 py-2">{Object.entries(reviewLabels).map(([k,v])=><option key={k} value={k}>{t(v)}</option>)}</select></div>{selected.description&&<div><p className="text-xs text-muted-foreground">{t('Description')}</p><p>{selected.description}</p></div>}<div><p className="text-xs text-muted-foreground">{t('File')}</p><p className="font-mono text-sm">{selected.file||'—'}{selected.line?` : ${t('Line')} ${selected.line}`:''}</p></div><div><p className="text-xs text-muted-foreground">{t('Secret Value')}</p><code className="mt-1 block rounded-lg bg-muted p-3 text-xs break-all">{selected.value}</code></div></div><div className="flex justify-between border-t p-5"><button onClick={()=>{if(confirm(t('Delete Finding?')))remove.mutate(selected.id)}} className="inline-flex items-center gap-2 rounded-lg bg-destructive px-4 py-2 text-sm text-destructive-foreground"><Trash2 className="h-4 w-4"/>{t('Delete')}</button><button onClick={()=>setSelected(null)} className="rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground">{t('Close')}</button></div></div></div>}
-  </div>;
+  const { t } = useLanguage();
+  const qc = useQueryClient();
+  const navigate = useNavigate();
+  const [params, setParams] = useSearchParams();
+  const [selected, setSelected] = useState<Finding | null>(null);
+  const [showFilters, setShowFilters] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const filters = {
+    type: params.get("type") || undefined,
+    value: params.get("value") || undefined,
+    email: params.get("email") || undefined,
+    repository: params.get("repository") || undefined,
+    scan: params.get("scan") ? Number(params.get("scan")) : undefined,
+    validated: params.get("validated")
+      ? params.get("validated") === "true"
+      : undefined,
+    review_status: params.get("review_status") || undefined,
+    created_at: params.get("created_at") || undefined,
+    page: Number(params.get("page") || "1"),
+  };
+  const { data, isLoading } = useQuery({
+    queryKey: ["findings", filters],
+    queryFn: () => findingsApi.list(filters),
+    refetchInterval: 5000,
+    refetchIntervalInBackground: false,
+    staleTime: 0,
+  });
+  const findings = data?.results ?? [];
+  const sourceScanId =
+    params.get("from") === "scans" && params.get("scan")
+      ? Number(params.get("scan"))
+      : undefined;
+  const returnTo = params.get("returnTo") || "/scans?tab=history";
+  const { data: sourceScan } = useQuery({
+    queryKey: ["scan", sourceScanId],
+    queryFn: () => scansApi.get(sourceScanId!),
+    enabled: sourceScanId !== undefined,
+    refetchInterval: 5000,
+  });
+  const update = useMutation({
+    mutationFn: ({
+      id,
+      status,
+    }: {
+      id: number;
+      status: Finding["review_status"];
+    }) => findingsApi.update(id, { review_status: status }),
+    onSuccess: (_, v) => {
+      qc.invalidateQueries({ queryKey: ["findings"] });
+      if (selected) setSelected({ ...selected, review_status: v.status });
+    },
+  });
+  const remove = useMutation({
+    mutationFn: findingsApi.delete,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["findings"] });
+      setSelected(null);
+    },
+  });
+  const bulkRemove = useMutation({
+    mutationFn: (ids: number[]) => findingsApi.bulkDelete(ids),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["findings"] });
+      setSelectedIds(new Set());
+    },
+  });
+  const toggle = (id: number) =>
+    setSelectedIds((s) => {
+      const n = new Set(s);
+      if (n.has(id)) n.delete(id);
+      else n.add(id);
+      return n;
+    });
+  const clear = () => {
+    setSelectedIds(new Set());
+    setParams(
+      sourceScanId
+        ? { from: "scans", returnTo, scan: String(sourceScanId) }
+        : {},
+    );
+  };
+  const apply = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const fd = new FormData(e.currentTarget);
+    const next = new URLSearchParams();
+    if (sourceScanId) {
+      next.set("from", "scans");
+      next.set("returnTo", returnTo);
+      next.set("scan", String(sourceScanId));
+    }
+    [
+      "type",
+      "value",
+      "email",
+      "repository",
+      "scan",
+      "validated",
+      "review_status",
+      "created_at",
+    ].forEach((k) => {
+      const v = String(fd.get(k) || "");
+      if (v) next.set(k, v);
+    });
+    setParams(next);
+    setShowFilters(false);
+  };
+  const changePage = (page: number) => {
+    const next = new URLSearchParams(params);
+    if (page <= 1) next.delete("page");
+    else next.set("page", String(page));
+    setSelectedIds(new Set());
+    setParams(next);
+  };
+  return (
+    <div className="space-y-5">
+      {sourceScanId && (
+        <div className="rounded-xl border bg-card p-4 shadow-sm">
+          <button
+            onClick={() => navigate(returnTo)}
+            className="inline-flex items-center gap-1 text-sm font-medium text-primary"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            {t("Back to Task History")}
+          </button>
+          <div className="mt-3 flex items-center justify-between">
+            <div>
+              <h2 className="font-semibold">Scan #{sourceScanId}</h2>
+              <p className="text-sm text-muted-foreground">
+                {sourceScan
+                  ? `${sourceScan.source} · ${sourceScan.value}`
+                  : t("Loading scan information...")}
+              </p>
+            </div>
+              <strong className="text-2xl">{data?.count ?? 0}</strong>
+          </div>
+        </div>
+      )}
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          {selectedIds.size > 0 && (
+            <span className="text-sm text-muted-foreground">
+              {selectedIds.size} {t("selected")}
+            </span>
+          )}
+        </div>
+        <div className="flex gap-2">
+          {selectedIds.size > 0 && (
+            <button
+              disabled={bulkRemove.isPending}
+              onClick={() => {
+                if (confirm(t("Delete selected findings?")))
+                  bulkRemove.mutate([...selectedIds]);
+              }}
+              className="inline-flex items-center gap-2 rounded-lg bg-destructive px-4 py-2 text-sm text-destructive-foreground disabled:opacity-50"
+            >
+              <Trash2 className="h-4 w-4" />
+              {bulkRemove.isPending ? t("Deleting...") : t("Delete Selected")}
+            </button>
+          )}
+          <button
+            onClick={() => setShowFilters(!showFilters)}
+            className="inline-flex items-center gap-2 rounded-lg border px-4 py-2 text-sm"
+          >
+            <Filter className="h-4 w-4" />
+            {showFilters ? t("Hide Filters") : t("Show Filters")}
+          </button>
+        </div>
+      </div>
+      {showFilters && (
+        <form onSubmit={apply} className="rounded-xl border bg-card p-5">
+          <div className="grid gap-3 md:grid-cols-3">
+            {[
+              ["type", "Type"],
+              ["repository", "Repository"],
+              ["email", "Email"],
+              ["value", "Value"],
+              ["scan", "Scan ID"],
+              ["created_at", "Created Date"],
+            ].map(([name, label]) => (
+              <label key={name} className="text-sm">
+                <span className="mb-1 block font-medium">{t(label)}</span>
+                <input
+                  name={name}
+                  type={
+                    name === "created_at"
+                      ? "date"
+                      : name === "scan"
+                        ? "number"
+                        : "text"
+                  }
+                  defaultValue={params.get(name) || ""}
+                  className="w-full rounded-md border bg-background px-3 py-2"
+                />
+              </label>
+            ))}
+            <label className="text-sm">
+              <span className="mb-1 block font-medium">
+                {t("Review Status")}
+              </span>
+              <select
+                name="review_status"
+                defaultValue={params.get("review_status") || ""}
+                className="w-full rounded-md border bg-background px-3 py-2"
+              >
+                <option value="">{t("All")}</option>
+                {Object.entries(reviewLabels).map(([k, v]) => (
+                  <option key={k} value={k}>
+                    {t(v)}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="text-sm">
+              <span className="mb-1 block font-medium">{t("Validation")}</span>
+              <select
+                name="validated"
+                defaultValue={params.get("validated") || ""}
+                className="w-full rounded-md border bg-background px-3 py-2"
+              >
+                <option value="">{t("All")}</option>
+                <option value="true">{t("VALIDATED")}</option>
+                <option value="false">{t("UNVALIDATED")}</option>
+              </select>
+            </label>
+          </div>
+          <div className="mt-4 flex gap-2">
+            <button className="rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground">
+              {t("Apply Filters")}
+            </button>
+            <button
+              type="button"
+              onClick={clear}
+              className="rounded-lg border px-4 py-2 text-sm"
+            >
+              {t("Clear All")}
+            </button>
+          </div>
+        </form>
+      )}
+      {isLoading ? (
+        <div className="rounded-xl border p-8 text-center text-muted-foreground">
+          {t("Loading...")}
+        </div>
+      ) : findings.length === 0 ? (
+        <div className="rounded-xl border border-dashed p-10 text-center text-muted-foreground">
+          {t("No findings yet")}
+        </div>
+      ) : (
+        <div className="overflow-hidden rounded-xl border bg-card">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-muted">
+                <tr>
+                  <th className="w-12 px-4 py-3">
+                    <input
+                      type="checkbox"
+                      checked={selectedIds.size === findings.length}
+                      onChange={() =>
+                        setSelectedIds(
+                          selectedIds.size === findings.length
+                            ? new Set()
+                            : new Set(findings.map((f) => f.id)),
+                        )
+                      }
+                    />
+                  </th>
+                  <th className="px-4 py-3 text-left">{t("Type")}</th>
+                  <th className="px-4 py-3 text-left">{t("Repository")}</th>
+                  <th className="px-4 py-3 text-left">{t("Severity")}</th>
+                  <th className="px-4 py-3 text-left">{t("Review Status")}</th>
+                  <th className="px-4 py-3 text-left">{t("Validated")}</th>
+                  <th className="px-4 py-3 text-right">{t("Actions")}</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {findings.map((f) => (
+                  <tr key={f.id} className="hover:bg-muted/40">
+                    <td className="px-4 py-3">
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.has(f.id)}
+                        onChange={() => toggle(f.id)}
+                      />
+                    </td>
+                    <td className="px-4 py-3 font-medium">{f.type}</td>
+                    <td className="max-w-sm truncate px-4 py-3 text-primary">
+                      {f.repository}
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className="rounded-full bg-muted px-2 py-1 text-xs">
+                        {f.severity}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span
+                        className={`rounded-full px-2 py-1 text-xs font-medium ${reviewClasses[f.review_status]}`}
+                      >
+                        {t(reviewLabels[f.review_status])}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      {f.validated ? (
+                        <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                      ) : (
+                        <CircleOff className="h-4 w-4 text-yellow-600" />
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <button
+                        onClick={() => setSelected(f)}
+                        className="inline-flex items-center gap-1 text-primary"
+                      >
+                        <Eye className="h-4 w-4" />
+                        {t("Details")}
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <Pagination
+            count={data?.count ?? 0}
+            page={filters.page}
+            pageSize={PAGE_SIZE}
+            onPageChange={changePage}
+          />
+        </div>
+      )}
+      {selected && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="max-h-[85vh] w-full max-w-3xl overflow-y-auto rounded-xl border bg-card shadow-xl">
+            <div className="flex items-center justify-between border-b p-5">
+              <div>
+                <h2 className="text-xl font-bold">{selected.type}</h2>
+                <p className="text-xs text-muted-foreground">
+                  {selected.repository}
+                </p>
+              </div>
+              <button onClick={() => setSelected(null)}>
+                <X />
+              </button>
+            </div>
+            <div className="space-y-5 p-5">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <p className="text-xs text-muted-foreground">
+                    {t("Severity")}
+                  </p>
+                  <p className="font-medium">{selected.severity}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">
+                    {t("Validation")}
+                  </p>
+                  <p className="font-medium">
+                    {selected.validated ? t("VALIDATED") : t("UNVALIDATED")}
+                  </p>
+                </div>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">
+                  {t("Review Status")}
+                </p>
+                <select
+                  value={selected.review_status}
+                  onChange={(e) =>
+                    update.mutate({
+                      id: selected.id,
+                      status: e.target.value as Finding["review_status"],
+                    })
+                  }
+                  className="mt-1 w-full rounded-md border bg-background px-3 py-2"
+                >
+                  {Object.entries(reviewLabels).map(([k, v]) => (
+                    <option key={k} value={k}>
+                      {t(v)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              {selected.description && (
+                <div>
+                  <p className="text-xs text-muted-foreground">
+                    {t("Description")}
+                  </p>
+                  <p>{selected.description}</p>
+                </div>
+              )}
+              <div>
+                <p className="text-xs text-muted-foreground">{t("File")}</p>
+                <p className="font-mono text-sm">
+                  {selected.file || "—"}
+                  {selected.line ? ` : ${t("Line")} ${selected.line}` : ""}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">
+                  {t("Secret Value")}
+                </p>
+                <code className="mt-1 block rounded-lg bg-muted p-3 text-xs break-all">
+                  {selected.value}
+                </code>
+              </div>
+            </div>
+            <div className="flex justify-between border-t p-5">
+              <button
+                onClick={() => {
+                  if (confirm(t("Delete Finding?"))) remove.mutate(selected.id);
+                }}
+                className="inline-flex items-center gap-2 rounded-lg bg-destructive px-4 py-2 text-sm text-destructive-foreground"
+              >
+                <Trash2 className="h-4 w-4" />
+                {t("Delete")}
+              </button>
+              <button
+                onClick={() => setSelected(null)}
+                className="rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground"
+              >
+                {t("Close")}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 };

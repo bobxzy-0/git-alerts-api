@@ -8,6 +8,7 @@ from .serializers import ExcludedRepositorySerializer, MonitorRuleSerializer, Mo
 from .models import ExcludedRepository, MonitorRule, MonitoringProfile, Scan, ScanRepository
 from findings.serializers import FindingSerializer
 from .tasks import dispatch_due_monitor_rules, run_monitor_rule_task, run_scan_task
+from core.pagination import StandardResultsSetPagination
 
 logger = getLogger(__name__)
 
@@ -17,6 +18,7 @@ class ScanView(generics.ListCreateAPIView):
 
     serializer_class = ScanSerializer
     permission_classes = [IsAuthenticated]
+    pagination_class = StandardResultsSetPagination
 
     filterset_fields = [
         "type", "value", "execution_status", "monitoring_status",
@@ -31,7 +33,7 @@ class ScanView(generics.ListCreateAPIView):
 
     def get_queryset(self):
         """Return scans created by the user"""
-        return Scan.objects.filter(user=self.request.user)
+        return Scan.objects.filter(user=self.request.user).order_by("-created_at", "-id")
 
     def perform_create(self, serializer):
         """Attach the logged-in user automatically"""

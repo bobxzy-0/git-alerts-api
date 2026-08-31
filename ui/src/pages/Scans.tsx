@@ -2,6 +2,9 @@ import React, { useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { scansApi } from '@/services/api';
+import { Pagination } from '@/components/Pagination';
+
+const PAGE_SIZE = 20;
 
 export const Scans: React.FC<{ embedded?: boolean }> = ({ embedded = false }) => {
   const queryClient = useQueryClient();
@@ -27,9 +30,10 @@ export const Scans: React.FC<{ embedded?: boolean }> = ({ embedded = false }) =>
     trigger_type: searchParams.get('trigger_type') || undefined,
     created_at: searchParams.get('created_at') || undefined,
     completed_at: searchParams.get('completed_at') || undefined,
+    page: Number(searchParams.get('page') || '1'),
   };
 
-  const { data: scans = [], isLoading, error } = useQuery({
+  const { data, isLoading, error } = useQuery({
     queryKey: ['scans', filters],
     queryFn: () => scansApi.list(filters),
     refetchInterval: 5_000,
@@ -37,6 +41,8 @@ export const Scans: React.FC<{ embedded?: boolean }> = ({ embedded = false }) =>
     refetchOnWindowFocus: true,
     staleTime: 0,
   });
+  const scans = data?.results ?? [];
+  const page = filters.page;
 
   const bulkDeleteMutation = useMutation({
     mutationFn: async (ids: number[]) => {
@@ -104,6 +110,14 @@ export const Scans: React.FC<{ embedded?: boolean }> = ({ embedded = false }) =>
     setFilterForm({ ...filterForm, [key]: '' });
   };
 
+  const handlePageChange = (nextPage: number) => {
+    const newParams = new URLSearchParams(searchParams);
+    if (nextPage <= 1) newParams.delete('page');
+    else newParams.set('page', String(nextPage));
+    setSelectedScans(new Set());
+    setSearchParams(newParams);
+  };
+
   const getStatusBadge = (status: string) => {
     const styles = {
       QUEUED: 'bg-blue-500/10 text-blue-600',
@@ -130,6 +144,7 @@ export const Scans: React.FC<{ embedded?: boolean }> = ({ embedded = false }) =>
 
   // Get active filter labels
   const activeFilters = Object.entries(filters)
+    .filter(([key]) => key !== 'page')
     .filter(([, value]) => value !== undefined)
     .map(([key, value]) => `${key}: ${value}`);
 
@@ -175,7 +190,7 @@ export const Scans: React.FC<{ embedded?: boolean }> = ({ embedded = false }) =>
         <div className="flex flex-wrap gap-2 items-center">
           <span className="text-sm font-medium text-muted-foreground">Active filters:</span>
           {Object.entries(filters).map(([key, value]) =>
-            value !== undefined ? (
+            key !== 'page' && value !== undefined ? (
               <span
                 key={key}
                 className="inline-flex items-center gap-2 px-3 py-1 bg-primary/10 text-primary rounded-full text-sm"
@@ -436,6 +451,7 @@ export const Scans: React.FC<{ embedded?: boolean }> = ({ embedded = false }) =>
               </tbody>
             </table>
           </div>
+          <Pagination count={data?.count ?? 0} page={page} pageSize={PAGE_SIZE} onPageChange={handlePageChange} />
         </div>
       )}
     </div>

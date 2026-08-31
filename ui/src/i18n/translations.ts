@@ -47,6 +47,7 @@ export const zhCN: Record<string, string> = {
   'Completed Date': '完成日期', 'Apply Filters': '应用筛选', 'Cancel': '取消',
   'Delete': '删除', 'Deleting...': '正在删除…', 'Delete Selected': '删除所选项',
   'Select all': '全选', 'Type': '类型', 'Value': '值', 'Repository': '仓库',
+  'Previous': '上一页', 'Next': '下一页',
   'Email': '电子邮箱', 'Validated': '已验证', 'Unvalidated': '未验证',
   'All': '全部', 'Actions': '操作', 'Details': '详情', 'Close': '关闭',
   'Created At': '创建时间', 'Completed At': '完成时间', 'Scan Details': '扫描详情',
@@ -146,5 +147,7 @@ export function translateText(value: string): string {
     .replace(/^Daily at (.+)$/, '每天 $1')
     .replace(/^(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)(, (Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday))* at (.+)$/, (text) => text.replace(' at ', ' ').replace(/Monday/g, '周一').replace(/Tuesday/g, '周二').replace(/Wednesday/g, '周三').replace(/Thursday/g, '周四').replace(/Friday/g, '周五').replace(/Saturday/g, '周六').replace(/Sunday/g, '周日').replace(/, /g, '、'))
     .replace(/^Refreshes every (\d+) seconds while visible$/, '页面可见时每 $1 秒自动刷新')
-    .replace(/^Delete Selected \((\d+)\)$/, '删除所选项（$1）');
+    .replace(/^Delete Selected \((\d+)\)$/, '删除所选项（$1）')
+    .replace(/^Page (\d+) of (\d+)$/, '第 $1 / $2 页')
+    .replace(/^Showing (\d+)–(\d+) of (\d+)$/, '显示第 $1–$2 条，共 $3 条');
 }

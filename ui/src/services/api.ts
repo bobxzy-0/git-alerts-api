@@ -1,16 +1,282 @@
-import apiClient from '@/lib/api-client';
-import type { LoginCredentials, TokenResponse, Scan, CreateScanRequest, Finding, PaginatedResponse, IgnoreFindingType, IgnoreFindingDomain, CreateIgnoreTypeRequest, CreateIgnoreDomainRequest, UserIntegration, CreateIntegrationRequest, SystemSettings, Branding, UpdateSystemSettingsRequest, DashboardSummary, MonitorRule, SourceHealth, NotificationChannel, EmailConfiguration, MonitoringProfile, ScanRepository, ExcludedRepository } from '@/types';
-export const authApi = { login: async (c: LoginCredentials): Promise<TokenResponse> => (await apiClient.post<TokenResponse>('/api/token/', c)).data, refreshToken: async (refresh: string): Promise<{access:string}> => (await apiClient.post<{access:string}>('/api/token/refresh/', {refresh})).data };
-export const dashboardApi = { get: async (): Promise<DashboardSummary> => (await apiClient.get<DashboardSummary>('/dashboard/')).data };
-export const sourceHealthApi = { list: async (): Promise<SourceHealth[]> => (await apiClient.get<SourceHealth[]>('/source-health/')).data };
-export const monitorRulesApi = { list: async (): Promise<MonitorRule[]> => (await apiClient.get<MonitorRule[]>('/monitor-rules/')).data, create: async (data: Pick<MonitorRule,'name'|'enabled'|'source'|'scan_type'|'value'|'interval_minutes'> & Partial<Pick<MonitorRule,'schedule_kind'|'schedule_time'|'schedule_weekdays'|'cron_expression'|'timezone'>>): Promise<MonitorRule> => (await apiClient.post<MonitorRule>('/monitor-rules/',data)).data, update: async (id:number,data:Partial<MonitorRule>): Promise<MonitorRule> => (await apiClient.patch<MonitorRule>(`/monitor-rules/${id}/`,data)).data, delete: async (id:number):Promise<void> => { await apiClient.delete(`/monitor-rules/${id}/`); }, runNow: async (id:number):Promise<Scan> => (await apiClient.post<Scan>(`/monitor-rules/${id}/run/`)).data };
-export const notificationChannelsApi = { list: async ():Promise<NotificationChannel[]> => (await apiClient.get<NotificationChannel[]>('/notifications/channels/')).data, create: async (data:Pick<NotificationChannel,'name'|'channel_type'|'target'|'enabled'|'body_template'>):Promise<NotificationChannel> => (await apiClient.post<NotificationChannel>('/notifications/channels/',data)).data, update: async (id:number,data:Partial<NotificationChannel>):Promise<NotificationChannel> => (await apiClient.patch<NotificationChannel>(`/notifications/channels/${id}/`,data)).data, delete: async (id:number):Promise<void> => { await apiClient.delete(`/notifications/channels/${id}/`); } };
-export const emailConfigurationApi = { get: async ():Promise<EmailConfiguration> => (await apiClient.get<EmailConfiguration>('/notifications/email-settings/')).data, update: async (data:Partial<EmailConfiguration>):Promise<EmailConfiguration> => (await apiClient.patch<EmailConfiguration>('/notifications/email-settings/',data)).data };
-export const monitoringProfilesApi = { list: async ():Promise<MonitoringProfile[]> => (await apiClient.get<MonitoringProfile[]>('/monitoring-profiles/')).data, create: async (data:Omit<MonitoringProfile,'id'|'generated_rule_count'|'schedule_kind'|'schedule_time'|'schedule_weekdays'|'cron_expression'> & Partial<Pick<MonitoringProfile,'schedule_kind'|'schedule_time'|'schedule_weekdays'|'cron_expression'>>):Promise<MonitoringProfile> => (await apiClient.post<MonitoringProfile>('/monitoring-profiles/',data)).data, delete: async (id:number):Promise<void> => { await apiClient.delete(`/monitoring-profiles/${id}/`); } };
-export const scansApi = { list: async (params?:Record<string,string>):Promise<Scan[]> => (await apiClient.get<Scan[]>('/scans/',{params})).data, get: async (id:number):Promise<Scan> => (await apiClient.get<Scan>(`/scans/${id}/`)).data, create: async (data:CreateScanRequest):Promise<Scan> => (await apiClient.post<Scan>('/scans/',data)).data, delete: async (id:number):Promise<void> => { await apiClient.delete(`/scans/${id}/`); }, getFindings: async (scanId:number,page=1):Promise<PaginatedResponse<Finding>> => (await apiClient.get<PaginatedResponse<Finding>>(`/scans/${scanId}/findings/?page=${page}`)).data, getRepositories: async (scanId:number):Promise<ScanRepository[]> => (await apiClient.get<ScanRepository[]>(`/scans/${scanId}/repositories/`)).data };
-export const excludedRepositoriesApi = { list: async ():Promise<ExcludedRepository[]> => (await apiClient.get<ExcludedRepository[]>('/excluded-repositories/')).data, create: async (data:Pick<ExcludedRepository,'source'|'repository_url'|'owner'|'repository'|'reason'|'enabled'>):Promise<ExcludedRepository> => (await apiClient.post<ExcludedRepository>('/excluded-repositories/',data)).data, update: async (id:number,data:Partial<ExcludedRepository>):Promise<ExcludedRepository> => (await apiClient.patch<ExcludedRepository>(`/excluded-repositories/${id}/`,data)).data, delete: async (id:number):Promise<void> => { await apiClient.delete(`/excluded-repositories/${id}/`); } };
-export const findingsApi = { list: async (params?:{type?:string;value?:string;email?:string;repository?:string;scan?:number;validated?:boolean;review_status?:string;created_at?:string}):Promise<Finding[]> => (await apiClient.get<Finding[]>('/findings/',{params})).data, get: async (id:number):Promise<Finding> => (await apiClient.get<Finding>(`/findings/${id}/`)).data, update: async (id:number,data:Partial<Finding>):Promise<Finding> => (await apiClient.patch<Finding>(`/findings/${id}/`,data)).data, delete: async (id:number):Promise<void> => { await apiClient.delete(`/findings/${id}/`); }, bulkDelete: async (ids:number[]):Promise<{deleted:number}> => (await apiClient.post<{deleted:number}>('/findings/bulk-delete/',{ids})).data };
-export const ignoreRulesApi = { listTypes: async ():Promise<IgnoreFindingType[]> => (await apiClient.get<IgnoreFindingType[]>('/finding-ignores/types/')).data, createType: async (data:CreateIgnoreTypeRequest):Promise<IgnoreFindingType> => (await apiClient.post<IgnoreFindingType>('/finding-ignores/types/',data)).data, deleteType: async (id:number):Promise<void> => { await apiClient.delete(`/finding-ignores/types/${id}`); }, listDomains: async ():Promise<IgnoreFindingDomain[]> => (await apiClient.get<IgnoreFindingDomain[]>('/finding-ignores/domains/')).data, createDomain: async (data:CreateIgnoreDomainRequest):Promise<IgnoreFindingDomain> => (await apiClient.post<IgnoreFindingDomain>('/finding-ignores/domains/',data)).data, deleteDomain: async (id:number):Promise<void> => { await apiClient.delete(`/finding-ignores/domains/${id}`); } };
-export const integrationsApi = { list: async ():Promise<UserIntegration[]> => (await apiClient.get<UserIntegration[]>('/integrations/')).data, create: async (data:CreateIntegrationRequest):Promise<UserIntegration> => (await apiClient.post<UserIntegration>('/integrations/',data)).data, validate: async (id:number):Promise<{message:string;integration_id:number;provider:string;status:string}> => (await apiClient.post(`/integrations/${id}/validate/`)).data };
-export const settingsApi = { get: async ():Promise<SystemSettings> => (await apiClient.get<SystemSettings>('/settings/')).data, update: async (data:UpdateSystemSettingsRequest):Promise<SystemSettings> => (await apiClient.patch<SystemSettings>('/settings/',data)).data };
-export const brandingApi = { get: async ():Promise<Branding> => (await apiClient.get<Branding>('/branding/')).data };
+import apiClient from "@/lib/api-client";
+import type {
+  LoginCredentials,
+  TokenResponse,
+  Scan,
+  CreateScanRequest,
+  Finding,
+  PaginatedResponse,
+  IgnoreFindingType,
+  IgnoreFindingDomain,
+  CreateIgnoreTypeRequest,
+  CreateIgnoreDomainRequest,
+  UserIntegration,
+  CreateIntegrationRequest,
+  SystemSettings,
+  Branding,
+  UpdateSystemSettingsRequest,
+  DashboardSummary,
+  MonitorRule,
+  SourceHealth,
+  NotificationChannel,
+  EmailConfiguration,
+  MonitoringProfile,
+  ScanRepository,
+  ExcludedRepository,
+} from "@/types";
+export const authApi = {
+  login: async (c: LoginCredentials): Promise<TokenResponse> =>
+    (await apiClient.post<TokenResponse>("/api/token/", c)).data,
+  refreshToken: async (refresh: string): Promise<{ access: string }> =>
+    (
+      await apiClient.post<{ access: string }>("/api/token/refresh/", {
+        refresh,
+      })
+    ).data,
+};
+export const dashboardApi = {
+  get: async (): Promise<DashboardSummary> =>
+    (await apiClient.get<DashboardSummary>("/dashboard/")).data,
+};
+export const sourceHealthApi = {
+  list: async (): Promise<SourceHealth[]> =>
+    (await apiClient.get<SourceHealth[]>("/source-health/")).data,
+};
+export const monitorRulesApi = {
+  list: async (): Promise<MonitorRule[]> =>
+    (await apiClient.get<MonitorRule[]>("/monitor-rules/")).data,
+  create: async (
+    data: Pick<
+      MonitorRule,
+      "name" | "enabled" | "source" | "scan_type" | "value" | "interval_minutes"
+    > &
+      Partial<
+        Pick<
+          MonitorRule,
+          | "schedule_kind"
+          | "schedule_time"
+          | "schedule_weekdays"
+          | "cron_expression"
+          | "timezone"
+        >
+      >,
+  ): Promise<MonitorRule> =>
+    (await apiClient.post<MonitorRule>("/monitor-rules/", data)).data,
+  update: async (
+    id: number,
+    data: Partial<MonitorRule>,
+  ): Promise<MonitorRule> =>
+    (await apiClient.patch<MonitorRule>(`/monitor-rules/${id}/`, data)).data,
+  delete: async (id: number): Promise<void> => {
+    await apiClient.delete(`/monitor-rules/${id}/`);
+  },
+  runNow: async (id: number): Promise<Scan> =>
+    (await apiClient.post<Scan>(`/monitor-rules/${id}/run/`)).data,
+};
+export const notificationChannelsApi = {
+  list: async (): Promise<NotificationChannel[]> =>
+    (await apiClient.get<NotificationChannel[]>("/notifications/channels/"))
+      .data,
+  create: async (
+    data: Pick<
+      NotificationChannel,
+      "name" | "channel_type" | "target" | "enabled" | "body_template"
+    >,
+  ): Promise<NotificationChannel> =>
+    (
+      await apiClient.post<NotificationChannel>(
+        "/notifications/channels/",
+        data,
+      )
+    ).data,
+  update: async (
+    id: number,
+    data: Partial<NotificationChannel>,
+  ): Promise<NotificationChannel> =>
+    (
+      await apiClient.patch<NotificationChannel>(
+        `/notifications/channels/${id}/`,
+        data,
+      )
+    ).data,
+  delete: async (id: number): Promise<void> => {
+    await apiClient.delete(`/notifications/channels/${id}/`);
+  },
+};
+export const emailConfigurationApi = {
+  get: async (): Promise<EmailConfiguration> =>
+    (await apiClient.get<EmailConfiguration>("/notifications/email-settings/"))
+      .data,
+  update: async (
+    data: Partial<EmailConfiguration>,
+  ): Promise<EmailConfiguration> =>
+    (
+      await apiClient.patch<EmailConfiguration>(
+        "/notifications/email-settings/",
+        data,
+      )
+    ).data,
+};
+export const monitoringProfilesApi = {
+  list: async (): Promise<MonitoringProfile[]> =>
+    (await apiClient.get<MonitoringProfile[]>("/monitoring-profiles/")).data,
+  create: async (
+    data: Omit<
+      MonitoringProfile,
+      | "id"
+      | "generated_rule_count"
+      | "schedule_kind"
+      | "schedule_time"
+      | "schedule_weekdays"
+      | "cron_expression"
+    > &
+      Partial<
+        Pick<
+          MonitoringProfile,
+          | "schedule_kind"
+          | "schedule_time"
+          | "schedule_weekdays"
+          | "cron_expression"
+        >
+      >,
+  ): Promise<MonitoringProfile> =>
+    (await apiClient.post<MonitoringProfile>("/monitoring-profiles/", data))
+      .data,
+  delete: async (id: number): Promise<void> => {
+    await apiClient.delete(`/monitoring-profiles/${id}/`);
+  },
+};
+export const scansApi = {
+  list: async (
+    params?: Record<string, string | number | undefined>,
+  ): Promise<PaginatedResponse<Scan>> =>
+    (await apiClient.get<PaginatedResponse<Scan>>("/scans/", { params })).data,
+  get: async (id: number): Promise<Scan> =>
+    (await apiClient.get<Scan>(`/scans/${id}/`)).data,
+  create: async (data: CreateScanRequest): Promise<Scan> =>
+    (await apiClient.post<Scan>("/scans/", data)).data,
+  delete: async (id: number): Promise<void> => {
+    await apiClient.delete(`/scans/${id}/`);
+  },
+  getFindings: async (
+    scanId: number,
+    page = 1,
+  ): Promise<PaginatedResponse<Finding>> =>
+    (
+      await apiClient.get<PaginatedResponse<Finding>>(
+        `/scans/${scanId}/findings/?page=${page}`,
+      )
+    ).data,
+  getRepositories: async (scanId: number): Promise<ScanRepository[]> =>
+    (await apiClient.get<ScanRepository[]>(`/scans/${scanId}/repositories/`))
+      .data,
+};
+export const excludedRepositoriesApi = {
+  list: async (): Promise<ExcludedRepository[]> =>
+    (await apiClient.get<ExcludedRepository[]>("/excluded-repositories/")).data,
+  create: async (
+    data: Pick<
+      ExcludedRepository,
+      | "source"
+      | "repository_url"
+      | "owner"
+      | "repository"
+      | "reason"
+      | "enabled"
+    >,
+  ): Promise<ExcludedRepository> =>
+    (await apiClient.post<ExcludedRepository>("/excluded-repositories/", data))
+      .data,
+  update: async (
+    id: number,
+    data: Partial<ExcludedRepository>,
+  ): Promise<ExcludedRepository> =>
+    (
+      await apiClient.patch<ExcludedRepository>(
+        `/excluded-repositories/${id}/`,
+        data,
+      )
+    ).data,
+  delete: async (id: number): Promise<void> => {
+    await apiClient.delete(`/excluded-repositories/${id}/`);
+  },
+};
+export const findingsApi = {
+  list: async (params?: {
+    type?: string;
+    value?: string;
+    email?: string;
+    repository?: string;
+    scan?: number;
+    validated?: boolean;
+    review_status?: string;
+    created_at?: string;
+    page?: number;
+  }): Promise<PaginatedResponse<Finding>> =>
+    (await apiClient.get<PaginatedResponse<Finding>>("/findings/", { params }))
+      .data,
+  get: async (id: number): Promise<Finding> =>
+    (await apiClient.get<Finding>(`/findings/${id}/`)).data,
+  update: async (id: number, data: Partial<Finding>): Promise<Finding> =>
+    (await apiClient.patch<Finding>(`/findings/${id}/`, data)).data,
+  delete: async (id: number): Promise<void> => {
+    await apiClient.delete(`/findings/${id}/`);
+  },
+  bulkDelete: async (ids: number[]): Promise<{ deleted: number }> =>
+    (
+      await apiClient.post<{ deleted: number }>("/findings/bulk-delete/", {
+        ids,
+      })
+    ).data,
+};
+export const ignoreRulesApi = {
+  listTypes: async (): Promise<IgnoreFindingType[]> =>
+    (await apiClient.get<IgnoreFindingType[]>("/finding-ignores/types/")).data,
+  createType: async (
+    data: CreateIgnoreTypeRequest,
+  ): Promise<IgnoreFindingType> =>
+    (await apiClient.post<IgnoreFindingType>("/finding-ignores/types/", data))
+      .data,
+  deleteType: async (id: number): Promise<void> => {
+    await apiClient.delete(`/finding-ignores/types/${id}`);
+  },
+  listDomains: async (): Promise<IgnoreFindingDomain[]> =>
+    (await apiClient.get<IgnoreFindingDomain[]>("/finding-ignores/domains/"))
+      .data,
+  createDomain: async (
+    data: CreateIgnoreDomainRequest,
+  ): Promise<IgnoreFindingDomain> =>
+    (
+      await apiClient.post<IgnoreFindingDomain>(
+        "/finding-ignores/domains/",
+        data,
+      )
+    ).data,
+  deleteDomain: async (id: number): Promise<void> => {
+    await apiClient.delete(`/finding-ignores/domains/${id}`);
+  },
+};
+export const integrationsApi = {
+  list: async (): Promise<UserIntegration[]> =>
+    (await apiClient.get<UserIntegration[]>("/integrations/")).data,
+  create: async (data: CreateIntegrationRequest): Promise<UserIntegration> =>
+    (await apiClient.post<UserIntegration>("/integrations/", data)).data,
+  validate: async (
+    id: number,
+  ): Promise<{
+    message: string;
+    integration_id: number;
+    provider: string;
+    status: string;
+  }> => (await apiClient.post(`/integrations/${id}/validate/`)).data,
+};
+export const settingsApi = {
+  get: async (): Promise<SystemSettings> =>
+    (await apiClient.get<SystemSettings>("/settings/")).data,
+  update: async (data: UpdateSystemSettingsRequest): Promise<SystemSettings> =>
+    (await apiClient.patch<SystemSettings>("/settings/", data)).data,
+};
+export const brandingApi = {
+  get: async (): Promise<Branding> =>
+    (await apiClient.get<Branding>("/branding/")).data,
+};
